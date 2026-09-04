@@ -165,7 +165,6 @@ export default function App () {
 	const [hidden, setHidden] = useState<Set<string>>(loadSavedHidden);
 	const [focus, setFocus] = useState<FocusPos>(() => {
 		// Never park focus on an empty row: boot into the first section that has items.
-		if (!hasIptvConfig()) return {section: 'apps', row: 0, col: 0};
 		try {
 			if (readCachedLive().length) return {section: 'live', row: 0, col: 0};
 			if (readCachedMovies().length) return {section: 'films', row: 0, col: 0};
