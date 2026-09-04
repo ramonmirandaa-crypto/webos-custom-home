@@ -35,7 +35,7 @@ export const Row = memo(function Row ({
 			style={{
 				transform: `translate3d(${-scroll}px, 0, 0)`,
 				transitionProperty: 'transform',
-				transitionDuration: '240ms',
+				transitionDuration: '180ms',
 				transitionTimingFunction: 'cubic-bezier(0.2, 0, 0, 1)'
 			}}
 		>

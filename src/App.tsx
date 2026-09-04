@@ -691,7 +691,7 @@ export default function App () {
 		<>
 			<div
 				className="fixed inset-0"
-				style={{background: 'url(./wallpaper.jpg) center/cover', filter: 'blur(42px) brightness(0.55) saturate(1.2)'}}
+				style={{background: 'url(./wallpaper.jpg) center/cover', filter: 'blur(28px) brightness(0.55)'}}
 			/>
 			<div
 				className="launcher-shell absolute left-0 top-0 select-none"
@@ -704,6 +704,8 @@ export default function App () {
 				}}
 			>
 				<div className="pointer-events-none absolute inset-0 bg-cover bg-center" style={{backgroundImage: 'url(./wallpaper.jpg)'}} />
+			<div className="pointer-events-none absolute inset-x-0 top-0 h-[180px]" style={{background: 'linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0))'}} />
+			<div className="pointer-events-none absolute inset-x-0 bottom-0 h-[260px]" style={{background: 'linear-gradient(0deg, rgba(0,0,0,0.55), rgba(0,0,0,0))'}} />
 				<div
 					className="pointer-events-none absolute left-[50%] top-[42%] h-[360px] w-[1460px] -translate-x-1/2 -translate-y-1/2"
 					style={{background: 'radial-gradient(closest-side, rgba(86,124,255,0.2), rgba(120,64,220,0.13) 46%, rgba(0,0,0,0) 78%)'}}
