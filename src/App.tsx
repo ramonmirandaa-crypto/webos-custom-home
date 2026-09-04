@@ -357,10 +357,12 @@ export default function App () {
 						let changed = false;
 
 						const merged = prev.map((app) => {
+							// The TV's own icon is the official art for what's installed —
+							// keep it apart from the bundled fallback so neither clobbers the other.
 							const launchPoint = byId.get(app.id);
-							if (!launchPoint?.icon || launchPoint.icon === app.icon) return app;
+							if (!launchPoint?.icon || launchPoint.icon === app.tvIcon) return app;
 							changed = true;
-							return {...app, icon: launchPoint.icon};
+							return {...app, tvIcon: launchPoint.icon};
 						});
 
 						for (const launchPoint of launchPoints) {
