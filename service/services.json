@@ -1,9 +1,9 @@
 {
-    "id": "tld.my.customhome.service",
+    "id": "br.com.customhome.lite.service",
     "description": "Home-button watcher and app launcher for the custom home screen",
     "services": [
         {
-            "name": "tld.my.customhome.service"
+            "name": "br.com.customhome.lite.service"
         }
     ]
 }

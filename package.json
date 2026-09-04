@@ -1,7 +1,7 @@
 {
-  "name": "custom-home",
+  "name": "custom-home-lite",
   "private": true,
-  "version": "0.4.2",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,15 +10,10 @@
     "deploy": "node scripts/deploy.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "^5.2.8",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "framer-motion": "^12.42.2",
+    "hls.js": "^1.5.17",
     "lucide-react": "^0.469.0",
-    "motion": "^11.15.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "tailwind-merge": "^2.6.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
@@ -28,7 +23,6 @@
     "browserslist": "^4.24.4",
     "lightningcss": "^1.29.1",
     "tailwindcss": "^4.0.0",
-    "tw-animate-css": "^1.2.5",
     "typescript": "^5.7.3",
     "vite": "^6.0.7"
   }
