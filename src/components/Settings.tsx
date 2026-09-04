@@ -16,6 +16,42 @@ const IPTV_FIELDS: {label: string; key: 'base' | 'user' | 'pass'; type: 'text' |
 	{label: 'Senha', key: 'pass', type: 'password'}
 ];
 
+// Import credentials from a short paste.rs code (typed on a phone, read here):
+// the paste holds JSON, base|user|pass, a full Xtream URL, or 3 lines.
+// Fetched through a CORS proxy; failure just reports 'fail', never throws.
+async function fetchImportConfig (code: string): Promise<IptvConfig | null> {
+	const id = code.trim();
+	if (!/^[a-zA-Z0-9]{4,12}$/.test(id)) return null;
+	try {
+		const r = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://paste.rs/' + id));
+		if (!r.ok) return null;
+		const text = (await r.text()).trim();
+		if (!text || text.length > 500) return null;
+		if (text.startsWith('{')) {
+			const o = JSON.parse(text);
+			if (o && typeof o.base === 'string' && typeof o.user === 'string' && o.base && o.user) {
+				return {base: o.base.trim(), user: o.user.trim(), pass: typeof o.pass === 'string' ? o.pass.trim() : ''};
+			}
+			return null;
+		}
+		if (text.includes('|')) {
+			const [base = '', user = '', pass = ''] = text.split('|').map((s) => s.trim());
+			return base && user ? {base, user, pass} : null;
+		}
+		const lines = text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+		const urlLine = lines.find((l) => /^https?:\/\//i.test(l));
+		if (urlLine) {
+			const u = new URL(urlLine);
+			const user = u.searchParams.get('username') || '';
+			if (user) return {base: u.origin, user, pass: u.searchParams.get('password') || ''};
+		}
+		if (lines.length >= 3) return {base: lines[0], user: lines[1], pass: lines[2]};
+		return null;
+	} catch {
+		return null;
+	}
+}
+
 function AppsPane ({apps, hidden, row}: {apps: AT4KAppItem[]; hidden: Set<string>; row: number}) {
 	return (
 		<div className="flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto pr-2">
@@ -44,7 +80,7 @@ function AppsPane ({apps, hidden, row}: {apps: AT4KAppItem[]; hidden: Set<string
 	);
 }
 
-export default function Settings ({onClose, onOrderReset, apps, hidden, onToggleHide, clock24, onClock24, iptvConfig, onSaveIptv}: {
+export default function Settings ({onClose, onOrderReset, apps, hidden, onToggleHide, clock24, onClock24, fps, onFps, iptvConfig, onSaveIptv}: {
 	onClose: () => void;
 	onOrderReset: () => void;
 	apps: AT4KAppItem[];
@@ -52,6 +88,8 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 	onToggleHide: (id: string) => void;
 	clock24: boolean;
 	onClock24: (v: boolean) => void;
+	fps: boolean;
+	onFps: (v: boolean) => void;
 	iptvConfig: IptvConfig;
 	onSaveIptv: (cfg: IptvConfig) => void;
 }) {
@@ -60,11 +98,18 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 	const [resetDone, setResetDone] = useState(false);
 	const [iptvDraft, setIptvDraft] = useState<IptvConfig>({base: iptvConfig.base, user: iptvConfig.user, pass: iptvConfig.pass});
 	const [editField, setEditField] = useState<number | null>(null);
+	const [importMode, setImportMode] = useState(false);
+	const [importCode, setImportCode] = useState('');
+	const [importMsg, setImportMsg] = useState<string | null>(null);
 
 	const ROWS: Row[] = [
 		{
 			kind: 'choice', label: 'Formato do relógio', values: ['12', '24'], labels: ['12 horas', '24 horas'],
 			get: () => (clock24 ? '24' : '12'), set: (v) => onClock24(v === '24')
+		},
+		{
+			kind: 'choice', label: 'Medidor de FPS', values: ['off', 'on'], labels: ['Oculto', 'Visível'],
+			get: () => (fps ? 'on' : 'off'), set: (v) => onFps(v === 'on')
 		},
 		{kind: 'action', label: 'Gerenciar aplicativos', hint: 'OK para abrir', action: 'apps'},
 		{kind: 'action', label: 'Configurar IPTV', hint: 'OK para abrir', action: 'iptv'},
@@ -73,7 +118,7 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 	];
 
 	const manageable = apps.filter((a) => a.launchType !== 'internal');
-	const rowCount = pane === 'main' ? ROWS.length : (pane === 'apps' ? manageable.length : IPTV_FIELDS.length + 1);
+	const rowCount = pane === 'main' ? ROWS.length : (pane === 'apps' ? manageable.length : IPTV_FIELDS.length + 2);
 
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
@@ -82,6 +127,33 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 			e.stopPropagation();
 
 			if (pane === 'iptv') {
+				if (importMode) {
+					if (e.key === 'Backspace') {
+						setImportCode((c) => c.slice(0, -1));
+						return;
+					}
+					if (e.key === 'Enter') {
+						void fetchImportConfig(importCode).then((cfg) => {
+							if (cfg) {
+								setIptvDraft(cfg);
+								setImportMsg('ok');
+							} else {
+								setImportMsg('fail');
+							}
+							setImportMode(false);
+						});
+						return;
+					}
+					if (e.key === 'GoBack' || e.key === 'Escape' || e.keyCode === 461) {
+						setImportMode(false);
+						setImportMsg(null);
+						return;
+					}
+					if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key) && importCode.length < 12) {
+						setImportCode((c) => c + e.key);
+					}
+					return;
+				}
 				if (editField !== null) {
 					if (e.key === 'Backspace') {
 						setIptvDraft((d) => {
@@ -112,9 +184,14 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 					return;
 				}
 				if (e.key === 'ArrowUp') { setRow((r) => Math.max(0, r - 1)); return; }
-				if (e.key === 'ArrowDown') { setRow((r) => Math.min(IPTV_FIELDS.length, r + 1)); return; }
+				if (e.key === 'ArrowDown') { setRow((r) => Math.min(IPTV_FIELDS.length + 1, r + 1)); return; }
 				if (e.key === 'Enter') {
 					if (row < IPTV_FIELDS.length) setEditField(row);
+					else if (row === IPTV_FIELDS.length) {
+						setImportMode(true);
+						setImportCode('');
+						setImportMsg(null);
+					}
 					else {
 						onSaveIptv(iptvDraft);
 						setPane('main');
@@ -152,6 +229,9 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 				else if (def.action === 'iptv') {
 					setIptvDraft({base: iptvConfig.base, user: iptvConfig.user, pass: iptvConfig.pass});
 					setEditField(null);
+					setImportMode(false);
+					setImportCode('');
+					setImportMsg(null);
 					setPane('iptv');
 					setRow(0);
 				}
@@ -166,13 +246,13 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 
 		window.addEventListener('keydown', onKey, true);
 		return () => window.removeEventListener('keydown', onKey, true);
-	}, [pane, row, rowCount, onClose, onOrderReset, manageable, onToggleHide, clock24, onClock24, editField, iptvDraft, iptvConfig, onSaveIptv]);
+	}, [pane, row, rowCount, onClose, onOrderReset, manageable, onToggleHide, clock24, onClock24, fps, onFps, editField, iptvDraft, iptvConfig, onSaveIptv]);
 
 	const title = pane === 'main' ? 'Ajustes do Launcher' : (pane === 'apps' ? 'Gerenciar aplicativos' : 'Configurar IPTV');
 	const hint = pane === 'apps'
 		? '↑↓ navegar · OK mostrar/ocultar · Back voltar'
 		: pane === 'iptv'
-			? '↑↓ navegar · OK editar · Back voltar'
+			? '↑↓ navegar · OK editar/importar · Back voltar'
 			: '↑↓ navegar · ‹ › alterar · OK selecionar · Back fechar';
 
 	return (
@@ -211,14 +291,29 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 							);
 						})}
 						<div
-							className="flex items-center justify-between rounded-2xl px-6 py-4 transition-colors"
+							className="flex flex-col gap-2 rounded-2xl px-6 py-4 transition-colors"
 							style={{
 								background: row === IPTV_FIELDS.length ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
 								border: `1.5px solid ${row === IPTV_FIELDS.length ? 'rgba(255,255,255,0.3)' : 'transparent'}`
 							}}
 						>
+							<div className="flex items-center justify-between">
+								<span className="text-xl font-medium text-white/90">Importar via código</span>
+								<span className="text-lg font-medium" style={{color: row === IPTV_FIELDS.length ? '#38BDF8' : 'rgba(255,255,255,0.5)'}}>
+									{importMode ? (importCode || 'digite…') : (importMsg === 'ok' ? 'Importado ✓' : importMsg === 'fail' ? 'Código inválido' : 'OK para importar')}
+								</span>
+							</div>
+							<span className="text-sm font-medium text-white/40">Cole a lista num paste (paste.rs) no celular e digite só o código aqui</span>
+						</div>
+						<div
+							className="flex items-center justify-between rounded-2xl px-6 py-4 transition-colors"
+							style={{
+								background: row === IPTV_FIELDS.length + 1 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
+								border: `1.5px solid ${row === IPTV_FIELDS.length + 1 ? 'rgba(255,255,255,0.3)' : 'transparent'}`
+							}}
+						>
 							<span className="text-xl font-medium text-white/90">Salvar</span>
-							<span className="text-lg font-medium" style={{color: row === IPTV_FIELDS.length ? '#38BDF8' : 'rgba(255,255,255,0.5)'}}>
+							<span className="text-lg font-medium" style={{color: row === IPTV_FIELDS.length + 1 ? '#38BDF8' : 'rgba(255,255,255,0.5)'}}>
 								OK para salvar
 							</span>
 						</div>

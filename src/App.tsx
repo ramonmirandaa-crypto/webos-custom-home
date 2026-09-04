@@ -116,6 +116,34 @@ const SkeletonTiles = memo(function SkeletonTiles ({count, prefix, size = 'lg'}:
 	);
 });
 
+function FpsMeter () {
+	const [stat, setStat] = useState('—');
+	useEffect(() => {
+		let frames = 0;
+		let worst = Infinity;
+		let last = performance.now();
+		let raf = 0;
+		const loop = (now: number) => {
+			frames++;
+			if (now - last >= 500) {
+				const fps = Math.round((frames * 1000) / (now - last));
+				worst = Math.min(worst, fps);
+				setStat(`${fps} · mín ${worst}`);
+				frames = 0;
+				last = now;
+			}
+			raf = requestAnimationFrame(loop);
+		};
+		raf = requestAnimationFrame(loop);
+		return () => cancelAnimationFrame(raf);
+	}, []);
+	return (
+		<div className="absolute bottom-4 left-6 z-50 rounded-full bg-black/70 px-4 py-1.5 text-[14px] font-semibold tabular-nums text-white/85">
+			{stat} fps
+		</div>
+	);
+}
+
 export default function App () {
 	const [apps, setApps] = useState<AT4KAppItem[]>(() => {
 		const saved = loadSavedOrder();
@@ -150,6 +178,14 @@ export default function App () {
 	const [reordering, setReordering] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [clock24, setClock24] = useState(loadClock24);
+	const [fps, setFps] = useState(() => {
+		try { return localStorage.getItem('home-fps-v1') === '1'; }
+		catch { return false; }
+	});
+	const handleFps = useCallback((v: boolean) => {
+		setFps(v);
+		try { localStorage.setItem('home-fps-v1', v ? '1' : '0'); } catch {}
+	}, []);
 	const [toast, setToast] = useState<string | null>(null);
 	const [iptvConfig, setIptvConfig] = useState<IptvConfig>(() => loadIptvConfig());
 
@@ -907,6 +943,8 @@ export default function App () {
 							setClock24(v);
 							saveClock24(v);
 						}}
+						fps={fps}
+						onFps={handleFps}
 						iptvConfig={iptvConfig}
 						onSaveIptv={handleSaveIptv}
 					/>
@@ -937,6 +975,7 @@ export default function App () {
 						{toast}
 					</div>
 				)}
+				{fps && <FpsMeter />}
 			</div>
 		</>
 	);
