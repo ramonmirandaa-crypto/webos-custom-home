@@ -1,0 +1,21 @@
+{
+  "_comment": "App IDs scripts/tv-helper.py is allowed to launch. Keep in sync with DEFAULT_AT4K_APPS in src/lib/at4k-data.ts. Install to the helper host with mode 600.",
+  "apps": [
+    "com.webos.app.livetv",
+    "globoplaywebos",
+    "com.crunchyroll.webos",
+    "youtube.leanback.v4",
+    "io.strem.tv",
+    "com.plutotv.app",
+    "com.aceplayer.app",
+    "com.webos.app.lgchannels",
+    "com.webos.app.hdmi1",
+    "com.webos.app.hdmi2",
+    "com.webos.app.hdmi3",
+    "com.webos.app.hdmi4",
+    "com.webos.app.browser",
+    "org.webosbrew.hbchannel",
+    "com.webos.app.discovery",
+    "com.palm.app.settings"
+  ]
+}

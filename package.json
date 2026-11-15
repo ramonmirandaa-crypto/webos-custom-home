@@ -1,17 +1,17 @@
 {
   "name": "custom-home-lite",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/inject-theme.mjs --tree dist --theme theme",
     "preview": "vite preview",
-    "deploy": "node scripts/deploy.mjs"
+    "deploy": "node scripts/deploy.mjs",
+    "test:local": "node test/stage-harness.mjs && python3 test/local-verify.py"
   },
   "dependencies": {
     "hls.js": "^1.5.17",
-    "lucide-react": "^0.469.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

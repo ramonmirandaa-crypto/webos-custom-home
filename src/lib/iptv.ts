@@ -4,6 +4,8 @@
 // cache instantly, refresh lists in the background, and treat EPG as optional
 // info (typically absent — tiles/OSD fall back to group title).
 
+import {iptvConfigSync} from './secrets';
+
 export interface LiveChannel {
 	id: number;
 	name: string;
@@ -48,30 +50,15 @@ export interface IptvConfig {
 	pass: string
 }
 
+// Credentials live in the Keymanager3-backed store (src/lib/secrets.ts) and are
+// mirrored in memory, so the data layer keeps a synchronous accessor for its
+// hot paths (`apiUrl`, `liveUrl`, …) without touching the TEE on every call.
 export function loadIptvConfig (): IptvConfig {
-	try {
-		const raw = localStorage.getItem('atl_iptv_config_v1')
-		if (!raw) return {base: '', user: '', pass: ''}
-		const c = JSON.parse(raw)
-		if (typeof c.base === 'string' && typeof c.user === 'string' && typeof c.pass === 'string') {
-			return {base: c.base, user: c.user, pass: c.pass}
-		}
-		return {base: '', user: '', pass: ''}
-	} catch {
-		return {base: '', user: '', pass: ''}
-	}
-}
-
-export function saveIptvConfig (cfg: IptvConfig): void {
-	try {
-		localStorage.setItem('atl_iptv_config_v1', JSON.stringify({base: cfg.base, user: cfg.user, pass: cfg.pass}))
-	} catch {
-		/* quota — same guard as cacheSet */
-	}
+	return iptvConfigSync();
 }
 
 export function hasIptvConfig (): boolean {
-	return loadIptvConfig().base !== ''
+	return iptvConfigSync().base !== '';
 }
 
 const LIST_TTL = 6 * 60 * 60 * 1000;

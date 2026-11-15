@@ -1,0 +1,991 @@
+/* ============================================================================
+   tvOS 26 theme overlay for the webOS launcher (br.com.customhome.lite)
+   Tokens extracted from Sketch "Design Templates + Components + Guides":
+     - labels / fills / tints .... "System Colors" frame
+     - materials ................. "Materials" frame
+     - type scale ................ "Guide - Type Styles" (SVG export of the frames)
+     - grid (6 col @ 250x150, 48 gutter, 90 margin) ... measured from
+                                   "Templates - Home Screen / App Grid - Default"
+   Loaded after the Tailwind bundle; unlayered rules therefore win over
+   Tailwind's @layer utilities without needing !important.
+
+   Source of truth for the numbers: tokens/tvos-tokens.json
+   ========================================================================== */
+
+:root {
+  /* labels (dark) */
+  --tv-label-1: #ffffff;
+  --tv-label-2: rgba(255, 255, 255, 0.5);
+  --tv-label-3: rgba(255, 255, 255, 0.3);
+  --tv-label-4: rgba(255, 255, 255, 0.2);
+  /* fills (dark) */
+  --tv-fill-1: rgba(255, 255, 255, 0.2);
+  --tv-fill-2: rgba(255, 255, 255, 0.16);
+  --tv-fill-3: rgba(255, 255, 255, 0.12);
+  --tv-fill-4: rgba(255, 255, 255, 0.08);
+  /* Home Screen dock platter (dark): #1e1e1e @ 50% over the photo
+     wallpaper (System/Home Screen/Dark/Dock/x/Platter/Left edge focused,
+     master BDA9F4C5 row B44836AE, platter shape E9054A2A) */
+  --tv-dock: rgba(30, 30, 30, 0.5);
+  /* materials (blur 75) */
+  --tv-material-ultradark: rgba(30, 30, 30, 0.85);
+  --tv-material-dark: rgba(30, 30, 30, 0.5);
+  --tv-material-semidark: rgba(30, 30, 30, 0.4);
+  --tv-surface: #1e1e1e;
+  --tv-surface-raised: #2a2a2a;
+  /* separator */
+  --tv-separator: rgba(255, 255, 255, 0.19);
+  /* tints (dark) */
+  --tv-red: #ff453a;
+  --tv-orange: #ff9f0a;
+  --tv-yellow: #ffd60a;
+  --tv-green: #32d74b;
+  --tv-mint: #63e6e2;
+  --tv-teal: #40c8e0;
+  --tv-cyan: #64d2ff;
+  --tv-blue: #0a84ff;
+  --tv-indigo: #5e5ce6;
+  --tv-purple: #bf5af2;
+  --tv-pink: #ff375f;
+  --tv-brown: #ac8e68;
+  /* geometry — Home Screen dock (measured 2026-09-16 from the Dark/Light
+     masters, not the 1920x1080 export):
+     dock band 1920x270 @ y0 (Main BDA9F4C5 h336 incl. under-fold);
+     platter 1830x230, r60, screen margin 45, row padding 40/40 (x50 row,
+     x90 icons, y80/40); tiles 250x150, gutter 48 (298 pitch);
+     focused icon Mask 306x184 r38 (28px halo each side), unfocused r30 */
+  --tv-tile-w: 250px;
+  --tv-tile-h: 150px;
+  --tv-tile-r: 30px;
+  --tv-tile-focus-r: 38px;
+  --tv-dock-w: 1830px;
+  --tv-dock-h: 230px;
+  --tv-dock-r: 60px;
+  --tv-dock-margin: 45px;
+  --tv-dock-pad: 40px;
+  --tv-gutter: 48px;
+  --tv-margin: 90px;
+  --tv-panel-r: 36px;
+  /* tvOS focus timing (templates token) */
+  --tv-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ---------------------------------------------------------------- typography */
+html,
+body,
+#root,
+.launcher-shell,
+.font-sans {
+  font-family: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont,
+    "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.01em;
+  font-feature-settings: "tnum" 0;
+}
+
+/* tvOS scale: 76 / 57 / 48 / 38 / 31 / 29 / 25 / 23 */
+.text-\[8px\],
+.text-\[9px\],
+.text-\[10px\],
+.text-\[11px\],
+.text-\[12\.5px\],
+.text-\[13px\],
+.text-sm {
+  font-size: 23px;
+  line-height: 30px;
+}
+
+.text-\[14px\],
+.text-\[15px\],
+.text-\[16px\],
+.text-\[16\.5px\],
+.text-\[18px\],
+.text-\[19px\],
+.text-\[20px\] {
+  font-size: 25px;
+  line-height: 32px;
+}
+
+.text-lg,
+.text-\[21px\],
+.text-\[22px\] {
+  font-size: 29px;
+  line-height: 36px;
+}
+
+.text-xl,
+.text-\[24px\],
+.text-\[26px\] {
+  font-size: 31px;
+  line-height: 38px;
+}
+
+.text-\[27px\],
+.text-\[28px\],
+.text-\[30px\],
+.text-\[32px\],
+.text-\[34px\],
+.text-3xl {
+  font-size: 38px;
+  line-height: 46px;
+}
+
+.text-\[36px\],
+.text-\[40px\],
+.text-\[42px\] {
+  font-size: 48px;
+  line-height: 56px;
+}
+
+.text-\[64px\] {
+  font-size: 76px;
+  line-height: 96px;
+}
+
+/* section headers sit on the photo wallpaper: soft shadow keeps them
+   legible in bright areas (same treatment tvOS uses over photography) */
+.text-\[28px\],
+.text-\[40px\] {
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+/* tvOS never goes above bold in UI type */
+.font-black,
+.font-extrabold {
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------ surfaces / materials */
+.bg-\[\#101318\]\/92 {
+  background-color: var(--tv-material-ultradark);
+}
+
+.bg-\[\#121822\] {
+  background-color: var(--tv-surface);
+}
+
+.bg-\[\#1A1E27\] {
+  background-color: var(--tv-surface-raised);
+}
+
+.bg-slate-900\/95 {
+  background-color: rgba(30, 30, 30, 0.95);
+}
+
+.bg-\[\#3A1B1B\]\/80 {
+  background-color: rgba(255, 69, 58, 0.18);
+}
+
+.bg-black\/45 {
+  background-color: rgba(30, 30, 30, 0.5);
+}
+
+.bg-black\/60 {
+  background-color: rgba(30, 30, 30, 0.6);
+}
+
+.bg-black\/70 {
+  background-color: rgba(30, 30, 30, 0.75);
+}
+
+.bg-black\/80 {
+  background-color: rgba(30, 30, 30, 0.85);
+}
+
+.bg-white\/5 {
+  background-color: var(--tv-fill-4);
+}
+
+.bg-white\/10 {
+  background-color: var(--tv-fill-3);
+}
+
+/* ------------------------------------------------------------------- accents */
+.bg-\[\#C084FC\] {
+  background-color: var(--tv-purple);
+}
+
+.text-\[\#FF6961\] {
+  color: var(--tv-red);
+}
+
+.text-\[\#FF8F86\] {
+  color: rgba(255, 69, 58, 0.8);
+}
+
+.text-sky-400 {
+  color: var(--tv-blue);
+}
+
+.text-\[\#111\] {
+  color: #000;
+}
+
+/* ------------------------------------------------------------ label ladder */
+.text-white\/95,
+.text-white\/92,
+.text-white\/90,
+.text-white\/85 {
+  color: var(--tv-label-1);
+}
+
+.text-white\/75,
+.text-white\/70,
+.text-white\/60,
+.text-white\/55 {
+  color: var(--tv-label-2);
+}
+
+.text-white\/45,
+.text-white\/40 {
+  color: var(--tv-label-3);
+}
+
+/* --------------------------------------------------------------- separators */
+.border-white\/10,
+.border-white\/12,
+.border-white\/14,
+.border-white\/15 {
+  border-color: var(--tv-separator);
+}
+
+.border-white\/30 {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* -------------------------------------------------------------------- radii */
+.rounded-\[5px\] {
+  border-radius: 6px;
+}
+
+.rounded-\[8px\] {
+  border-radius: 11px;
+}
+
+.rounded-\[12px\] {
+  border-radius: 14px;
+}
+
+.rounded-\[14px\] {
+  border-radius: 14px;
+}
+
+.rounded-\[22px\] {
+  border-radius: 12px;
+}
+
+.rounded-\[26px\] {
+  border-radius: 30px;
+}
+
+.rounded-\[30px\] {
+  border-radius: var(--tv-panel-r);
+}
+
+.rounded-\[36px\] {
+  border-radius: 44px;
+}
+
+/* ------------------------------------------------------------ app grid tiles */
+/* tvOS home: 250x150 tiles (5:3), 30px radius, 48px gutter, rows 1740px wide.
+   Triple-class selector: the bundle reuses h/w on media tiles with a
+   different radius (rounded-[11px]), so only rounded-[14px] is an app tile. */
+.h-\[90px\].w-\[160px\].rounded-\[14px\] {
+  width: var(--tv-tile-w);
+  height: var(--tv-tile-h);
+  border-radius: var(--tv-tile-r);
+}
+
+.h-\[90px\].rounded-\[11px\] {
+  border-radius: 12px;
+}
+
+.w-\[764px\] {
+  width: 1740px;
+}
+
+.launcher-shell .gap-8 {
+  gap: var(--tv-gutter);
+}
+
+/* apps grid rows (bundle gap-6): tvOS 48px gutters */
+.mt-\[29px\] .gap-6 {
+  gap: var(--tv-gutter);
+}
+
+.gap-\[29px\] {
+  gap: var(--tv-gutter);
+}
+
+.mt-\[29px\] {
+  margin-top: var(--tv-gutter);
+}
+
+.mt-\[19px\] {
+  margin-top: 32px;
+}
+
+.max-w-\[300px\] {
+  max-width: 420px;
+}
+
+.pt-\[7px\] {
+  padding-top: 14px;
+}
+
+/* ------------------------------------------------------------ focus / halo */
+[data-focused="true"] > div:first-child {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 0 32px rgba(255, 255, 255, 0.28), 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+/* --------------------------------------------------------------------- dock */
+/* Home Screen dock (Dark Main BDA9F4C5 / row B44836AE / platter E9054A2A):
+   band 1920x270, platter 1830x230 r60 at 45px screen margins, row padding
+   40/40, tiles 250x150 r30 (focused r38) on a 48px gutter. The favourites
+   row is that platter: same size, fill, corners, padding and blur. */
+.mt-\[19px\] > .flex {
+  width: var(--tv-dock-w);
+  min-height: var(--tv-dock-h);
+  background-color: var(--tv-dock);
+  -webkit-backdrop-filter: blur(75px) saturate(1.4);
+  backdrop-filter: blur(75px) saturate(1.4);
+  border: 0;
+  border-radius: var(--tv-dock-r);
+  padding: var(--tv-dock-pad) var(--tv-dock-pad);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* focused app tile: the Focused icon Mask is 306x184 r38 — a 28px halo past
+   the 250x150 art on every side, on transform/opacity only (TV Chromium) */
+[data-focused="true"] > div:first-child {
+  border-radius: var(--tv-tile-focus-r);
+  transition: box-shadow 0.2s var(--tv-ease), border-radius 0.2s var(--tv-ease);
+}
+
+
+/* ------------------------------------------------------------------ backdrop */
+/* tvOS keeps a scrim under the header so scrolled content fades out behind the
+   tab label / status area instead of colliding with it */
+.launcher-shell::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 132px;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 1) 0px,
+    rgba(0, 0, 0, 0.98) 52px,
+    rgba(0, 0, 0, 0.55) 92px,
+    rgba(0, 0, 0, 0) 132px
+  );
+  z-index: 35;
+  pointer-events: none;
+}
+
+/* header: Home Screen menu bar (Dark Menu Bar on FEAAFAD5: 192x60 pill at
+   (1678,50): 58px Time + 58px Avatar + 6px inset on a 60px platter).
+   The bundle header carries clock + 2 buttons, so it keeps its width and
+   takes the pill height, 60px corners, dark platter + 75px blur. */
+.left-\[41px\] {
+  left: var(--tv-margin);
+  top: 50px;
+}
+
+.right-\[24px\] {
+  right: 50px;
+  top: 50px;
+  min-height: 60px;
+  padding: 0 6px;
+  gap: 14px;
+  border-radius: 60px;
+  background-color: var(--tv-dock);
+  -webkit-backdrop-filter: blur(75px) saturate(1.4);
+  backdrop-filter: blur(75px) saturate(1.4);
+  border: 0;
+}
+
+.right-\[24px\] span {
+  font-size: 25px;
+  line-height: 32px;
+}
+
+.right-\[24px\] button {
+  width: 58px;
+  height: 58px;
+}
+
+.right-\[24px\] button svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* photo wallpaper first: the shell's own #050506 canvas sits behind the
+   blurred wallpaper layer, so the photo — not a grey box — shows through
+   the translucent dock platter and unfocused tiles */
+div.launcher-shell {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Home Screen template: full-bleed photo wallpaper, sharp (not the bundle's
+   blur(42px) treatment) — the Background Image shape (61B9EF7F) is an
+   unfiltered 1920x1080 photo with no overlay shape of its own */
+div[style*="blur(42px)"] {
+  filter: none !important;
+  opacity: 1;
+}
+
+/* --------------------------------------------------------- control centre */
+/* The "Ajustes" overlay is the tvOS Control Center, open state: a 480px panel
+   docked right (50px from the edge, 136px from the top) on a 24px padding /
+   16px gutter grid of 208x96 tiles with a 25px radius, tiles near-black until
+   focused - then white with black content, as tvOS highlights them. */
+.bg-black\/80 {
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 136px 50px 0 0;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.w-\[740px\] {
+  width: 480px;
+  padding: 24px;
+  border-radius: 50px;
+  border-color: rgba(255, 255, 255, 0.12);
+  background-color: rgba(30, 30, 30, 0.72);
+  -webkit-backdrop-filter: blur(75px) saturate(1.4);
+  backdrop-filter: blur(75px) saturate(1.4);
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5);
+}
+
+.w-\[740px\] h2 {
+  margin-bottom: 16px;
+  font-size: 25px;
+  line-height: 32px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.w-\[740px\] .gap-3 {
+  display: grid;
+  grid-template-columns: repeat(2, 208px);
+  /* the three wide tiles need 96px when the label fits one line and grow when
+     it wraps to two - the large tile spans the first two rows either way */
+  grid-auto-rows: minmax(96px, auto);
+  gap: 16px;
+}
+
+/* the tvOS Control Center mixes one large tile with wide ones - the first
+   setting (the one you cycle through) takes the large cell */
+.w-\[740px\] .gap-3 > div:nth-child(1) {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.w-\[740px\] .gap-3 > div:nth-child(2) {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.w-\[740px\] .gap-3 > div:nth-child(3) {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.w-\[740px\] .gap-3 > div:nth-child(4) {
+  grid-column: 1 / span 2;
+  grid-row: 3;
+}
+
+.w-\[740px\] .gap-3 > div {
+  height: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 16px;
+  border-radius: 25px;
+  background-color: rgba(0, 0, 0, 0.62) !important;
+  border-color: transparent !important;
+}
+
+.w-\[740px\] .gap-3 > div span {
+  font-size: 23px;
+  line-height: 26px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.w-\[740px\] .gap-3 > div > span:last-child:not(:first-child) {
+  font-size: 23px;
+  line-height: 26px;
+  color: rgba(255, 255, 255, 0.5);
+  -webkit-line-clamp: 1;
+}
+
+/* the large cell carries the value at headline size, on one line */
+.w-\[740px\] .gap-3 > div:nth-child(1) > span:first-child {
+  font-size: 25px;
+  line-height: 30px;
+  color: rgba(255, 255, 255, 0.5);
+  -webkit-line-clamp: 2;
+}
+
+.w-\[740px\] .gap-3 > div:nth-child(1) > span:last-child:not(:first-child) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 31px;
+  line-height: 38px;
+  color: #ffffff;
+  -webkit-line-clamp: none;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.w-\[740px\] .gap-3 > div:nth-child(1) > span:last-child > span {
+  font-size: 31px;
+  line-height: 38px;
+  -webkit-line-clamp: none;
+  overflow: visible;
+}
+
+.w-\[740px\] .gap-3 > div:nth-child(1) > span:last-child > span:first-child,
+.w-\[740px\] .gap-3 > div:nth-child(1) > span:last-child > span:last-child {
+  font-size: 23px;
+  line-height: 30px;
+  opacity: 0.5;
+}
+
+/* focused tile: tvOS inverts it to white with dark content */
+.w-\[740px\] .gap-3 > div[style*="0.12"] {
+  background-color: #ffffff !important;
+}
+
+.w-\[740px\] .gap-3 > div[style*="0.12"] span {
+  color: #000 !important;
+}
+
+.w-\[740px\] p {
+  margin-top: 20px;
+  font-size: 23px;
+  line-height: 28px;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ------------------------------------------------------------- home screen */
+/* Home Screen template: full-bleed photo wallpaper, sharp (like the Sketch
+   render) - and the favourites row is the Dock: platter 1830x230 r60 at
+   45px screen margins (Dark masters BDA9F4C5/B44836AE/E9054A2A), tiles
+   250x150 r30 (focused r38) on a 48px gutter. The shell canvas stays
+   transparent so the photo shows through the platter. The light theme
+   re-blurs it bright instead. */
+/* (blurred-wallpaper rule lives in the backdrop section above) */
+
+/* the unblurred copy of the wallpaper is what the template does not have */
+div[class*="bg-cover"][style*="wallpaper"] {
+  opacity: 0;
+}
+
+/* ------------------------------------------------------- controls panel ---- */
+/* The runtime half (theme/tvos-controls.js) builds this panel; it reuses the
+   Control Center geometry: 480px docked right, 50px corners, tiles on the
+   24/16 grid with the 25px radius, inverted to white when focused. */
+#tvos-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+}
+
+#tvos-controls[hidden] {
+  display: none;
+}
+
+.tvos-panel {
+  position: absolute;
+  right: 50px;
+  top: 136px;
+  width: 480px;
+  padding: 24px;
+  border-radius: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(30, 30, 30, 0.72);
+  -webkit-backdrop-filter: blur(75px) saturate(1.4);
+  backdrop-filter: blur(75px) saturate(1.4);
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5);
+  color: #fff;
+}
+
+.tvos-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.tvos-panel__title {
+  font-size: 25px;
+  line-height: 32px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.tvos-panel__status {
+  font-size: 23px;
+  line-height: 30px;
+  color: rgba(255, 255, 255, 0.3);
+  text-align: right;
+}
+
+.tvos-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 208px);
+  grid-auto-rows: minmax(96px, auto);
+  gap: 16px;
+}
+
+.tvos-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 25px;
+  background-color: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.tvos-tile[data-focused="true"] {
+  background-color: #ffffff;
+  color: #000;
+}
+
+.tvos-tile__label {
+  font-size: 25px;
+  line-height: 30px;
+  font-weight: 500;
+}
+
+.tvos-tile__value,
+.tvos-tile__hint {
+  font-size: 23px;
+  line-height: 28px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.tvos-tile[data-focused="true"] .tvos-tile__value,
+.tvos-tile[data-focused="true"] .tvos-tile__hint {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.tvos-panel__foot {
+  margin-top: 20px;
+  font-size: 23px;
+  line-height: 28px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* control-centre tiles: Sketch language — one accent glyph per tile,
+   one large tile (volume) spanning two rows of the 24/16 grid. */
+.tvos-tile__glyph {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+}
+
+.tvos-tile__glyph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tvos-tile__glyph--blue {
+  color: var(--tv-blue);
+}
+
+.tvos-tile__glyph--purple {
+  color: var(--tv-purple);
+}
+
+.tvos-tile--large {
+  grid-row: span 2;
+  min-height: 208px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.tvos-tile--large .tvos-tile__glyph {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 8px;
+}
+
+.tvos-tile--large .tvos-tile__label {
+  font-size: 25px;
+  line-height: 30px;
+  font-weight: 500;
+  opacity: 0.55;
+}
+
+.tvos-tile--large .tvos-tile__value {
+  font-size: 57px;
+  line-height: 66px;
+  font-weight: 700;
+  color: #fff;
+}
+
+html[data-tvos-theme="light"] .tvos-tile--large .tvos-tile__value {
+  color: #000;
+}
+
+/* large value follows the focus inversion (white tile in dark, black in light) */
+.tvos-tile--large[data-focused="true"] .tvos-tile__value {
+  color: #000;
+}
+
+html[data-tvos-theme="light"] .tvos-tile--large[data-focused="true"] .tvos-tile__value {
+  color: #fff;
+}
+
+.tvos-tile--large .tvos-tile__hint {
+  margin-top: 4px;
+}
+
+/* ============================================================================
+   Light theme — same geometry, Sketch "light" column values.
+   Enabled with html[data-tvos-theme="light"] (see tvos-controls.js).
+   Dark stays the default: without the attribute nothing changes.
+   ========================================================================== */
+
+html[data-tvos-theme="light"] {
+  /* labels (light) */
+  --tv-label-1: #000000;
+  --tv-label-2: rgba(0, 0, 0, 0.6);
+  --tv-label-3: rgba(0, 0, 0, 0.4);
+  --tv-label-4: rgba(0, 0, 0, 0.2);
+  /* fills become dark-on-light */
+  --tv-fill-1: rgba(0, 0, 0, 0.12);
+  --tv-fill-2: rgba(0, 0, 0, 0.08);
+  --tv-fill-3: rgba(0, 0, 0, 0.06);
+  --tv-fill-4: rgba(0, 0, 0, 0.04);
+  /* materials (light, blur 75) */
+  --tv-material-ultradark: rgba(254, 253, 255, 0.85);
+  --tv-material-dark: rgba(254, 253, 255, 0.55);
+  --tv-material-semidark: rgba(254, 253, 255, 0.4);
+  --tv-surface: #f2f2f6;
+  --tv-surface-raised: #ffffff;
+  /* separator (light) */
+  --tv-separator: rgba(0, 0, 0, 0.19);
+  /* tints (light) */
+  --tv-red: #ff3b30;
+  --tv-orange: #ff9500;
+  --tv-yellow: #ffcc00;
+  --tv-green: #34c759;
+  --tv-mint: #00c7be;
+  --tv-teal: #30b0c7;
+  --tv-cyan: #32ade6;
+  --tv-blue: #007aff;
+  --tv-indigo: #5856d6;
+  --tv-purple: #af52de;
+  --tv-pink: #ff5066;
+  --tv-brown: #a2845e;
+}
+
+/* light canvas (!important: the shell background is an inline style) */
+html[data-tvos-theme="light"] body,
+html[data-tvos-theme="light"] div.launcher-shell {
+  background: var(--tv-surface) !important;
+  background-color: var(--tv-surface) !important;
+}
+
+/* app tiles are translucent brand gradients built for a dark canvas:
+   give them a solid dark backing in light mode so the colors survive,
+   like opaque icons on a light shelf */
+html[data-tvos-theme="light"] .h-\[90px\].w-\[160px\].rounded-\[14px\] {
+  /* !important: the brand gradient is an inline style, this puts the
+     solid backing underneath it */
+  background-color: #04080c !important;
+  filter: saturate(1.15);
+}
+
+/* focus label under the tile: dark text on the light canvas */
+html[data-tvos-theme="light"] [data-focused="true"] > .absolute span {
+  color: #000 !important;
+  text-shadow: none !important;
+}
+
+/* rating badge on media cards: a micro-pill, kept small so it stays a badge
+   (the global 8/10px -> caption floor would make it a banner) */
+.rounded-full.bg-black\/60 {
+  font-size: 15px;
+  line-height: 20px;
+}
+
+/* the blurred dark wallpaper covers the canvas: fade it out in light mode
+   so the light surfaces behind show through */
+html[data-tvos-theme="light"] div[style*="blur(42px)"] {
+  opacity: 0.25 !important;
+}
+
+/* surfaces / scrims */
+html[data-tvos-theme="light"] .bg-slate-900\/95 {
+  background-color: rgba(248, 248, 250, 0.95);
+}
+
+html[data-tvos-theme="light"] .bg-\[\#3A1B1B\]\/80 {
+  background-color: rgba(255, 59, 48, 0.12);
+}
+
+html[data-tvos-theme="light"] .bg-black\/45 {
+  background-color: rgba(255, 255, 255, 0.45);
+}
+
+html[data-tvos-theme="light"] .bg-black\/60 {
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+html[data-tvos-theme="light"] .bg-black\/70 {
+  background-color: rgba(255, 255, 255, 0.75);
+}
+
+html[data-tvos-theme="light"] .bg-black\/80 {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+html[data-tvos-theme="light"] .text-\[\#FF8F86\] {
+  color: rgba(255, 59, 48, 0.9);
+}
+
+html[data-tvos-theme="light"] .border-white\/30 {
+  border-color: rgba(0, 0, 0, 0.3);
+}
+
+/* focus halo: dark ring on light backgrounds */
+html[data-tvos-theme="light"] [data-focused="true"] > div:first-child {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35),
+    0 0 32px rgba(0, 0, 0, 0.18), 0 18px 48px rgba(0, 0, 0, 0.35);
+}
+
+/* dock + menu-bar pill go white glass */
+html[data-tvos-theme="light"] .mt-\[19px\] > .flex,
+html[data-tvos-theme="light"] .right-\[24px\] {
+  background-color: rgba(254, 253, 255, 0.55);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+html[data-tvos-theme="light"] .right-\[24px\] span {
+  color: #000;
+}
+
+/* top scrim fades white in light mode */
+html[data-tvos-theme="light"] .launcher-shell::before {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 1) 0px,
+    rgba(255, 255, 255, 0.98) 52px,
+    rgba(255, 255, 255, 0.55) 92px,
+    rgba(255, 255, 255, 0) 132px
+  );
+}
+
+/* control centre: white panel, grey tiles, inverted focus */
+html[data-tvos-theme="light"] .bg-black\/80 {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+html[data-tvos-theme="light"] .w-\[740px\] {
+  border-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(254, 253, 255, 0.72);
+}
+
+html[data-tvos-theme="light"] .w-\[740px\] .gap-3 > div {
+  background-color: rgba(0, 0, 0, 0.07) !important;
+}
+
+html[data-tvos-theme="light"] .w-\[740px\] .gap-3 > div span {
+  color: #000;
+}
+
+html[data-tvos-theme="light"] .w-\[740px\] .gap-3 > div > span:last-child:not(:first-child),
+html[data-tvos-theme="light"] .w-\[740px\] .gap-3 > div:nth-child(1) > span:first-child {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+html[data-tvos-theme="light"] .w-\[740px\] .gap-3 > div:nth-child(1) > span:last-child:not(:first-child),
+html[data-tvos-theme="light"] .w-\[740px\] .gap-3 > div:nth-child(1) > span:last-child > span {
+  color: #000;
+}
+
+html[data-tvos-theme="light"] .w-\[740px\] .gap-3 > div:nth-child(1) > span:last-child > span:first-child,
+html[data-tvos-theme="light"] .w-\[740px\] .gap-3 > div:nth-child(1) > span:last-child > span:last-child {
+  opacity: 0.55;
+}
+
+html[data-tvos-theme="light"] .w-\[740px\] .gap-3 > div[style*="0.12"] {
+  background-color: #000 !important;
+}
+
+html[data-tvos-theme="light"] .w-\[740px\] .gap-3 > div[style*="0.12"] span {
+  color: #fff !important;
+}
+
+html[data-tvos-theme="light"] .w-\[740px\] p {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+/* wallpaper: no darkening in light mode */
+html[data-tvos-theme="light"] div[style*="blur(42px)"] {
+  filter: blur(75px) saturate(1.8) brightness(1.02) !important;
+}
+
+/* runtime controls panel */
+html[data-tvos-theme="light"] .tvos-panel {
+  border-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(254, 253, 255, 0.72);
+  color: #000;
+}
+
+html[data-tvos-theme="light"] .tvos-panel__title {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+html[data-tvos-theme="light"] .tvos-panel__status,
+html[data-tvos-theme="light"] .tvos-panel__foot {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+html[data-tvos-theme="light"] .tvos-tile {
+  background-color: rgba(0, 0, 0, 0.07);
+  color: #000;
+}
+
+html[data-tvos-theme="light"] .tvos-tile[data-focused="true"] {
+  background-color: #000;
+  color: #fff;
+}
+
+html[data-tvos-theme="light"] .tvos-tile__value,
+html[data-tvos-theme="light"] .tvos-tile__hint {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+html[data-tvos-theme="light"] .tvos-tile[data-focused="true"] .tvos-tile__value,
+html[data-tvos-theme="light"] .tvos-tile[data-focused="true"] .tvos-tile__hint {
+  color: rgba(255, 255, 255, 0.7);
+}

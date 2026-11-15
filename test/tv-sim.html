@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, initial-scale=1.0" />
+    <title>Home Lite (harness)</title>
+    <!-- Captures page errors so the runner can assert the console is clean. -->
+    <script>
+      window.__errors = [];
+      window.addEventListener('error', (e) => window.__errors.push(String(e.message || e)));
+      window.addEventListener('unhandledrejection', (e) => window.__errors.push(String((e.reason && e.reason.message) || e.reason)));
+    </script>
+    <!-- TV platform stand-in: must be defined BEFORE the bundle and before
+         webOSTV.js, so the library sees a PalmServiceBridge like on the panel. -->
+    <script src="./tv-sim.js"></script>
+    <script src="../lib/webOSTV.js"></script>
+    <script src="../lib/webOSTV-dev.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="../assets/index-bundle.js"></script>
+  </body>
+</html>

@@ -1,4 +1,5 @@
 {
-    "name": "tld.my.customhome.service",
+    "name": "br.com.customhome.lite.service",
+    "version": "1.0.1",
     "main": "service.js"
 }

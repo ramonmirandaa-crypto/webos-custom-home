@@ -114,7 +114,8 @@ export function SeriesPicker ({
 								key={s.n}
 								tabIndex={-1}
 								data-pill={s.n}
-								onClick={() => { setSeason(s.n); setCol(0); }}
+								onClick={() => { setSeason(s.n); setCol(0); setZone('pills'); }}
+								onMouseEnter={() => { setZone('pills'); setCol(seasons.indexOf(s)); }}
 								className="rounded-full px-5 py-2 text-[15px] font-semibold whitespace-nowrap"
 								style={{
 									background: zone === 'pills' && col === seasons.indexOf(s)
@@ -151,6 +152,7 @@ export function SeriesPicker ({
 								tabIndex={-1}
 								data-ep={i}
 								onClick={() => onPlay(ep)}
+								onMouseEnter={() => { setZone('grid'); setCol(i); }}
 								className="rounded-[14px] border px-4 py-3 text-left"
 								style={{
 									borderColor: focused ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.1)',

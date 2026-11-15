@@ -1,12 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=1920, initial-scale=1.0" />
-    <title>Custom Home</title>
+    <title>Home Lite</title>
+    <!-- webOSTV.js 1.2.13 (official LG library, bundled in public/lib/).
+         Must load before the app bundle: it defines window.webOS / window.webOSDev,
+         which the launcher uses for platformBack() and official app launches. -->
+    <script src="./lib/webOSTV.js"></script>
+    <script src="./lib/webOSTV-dev.js"></script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- tvOS overlay. Must come AFTER the bundle (document order wins): the
+         build appends these tags post-bundle, see scripts/inject-theme.mjs.
+         The <link>/<script> tags live in dist/index.html, not here, so a plain
+         `vite dev` run stays theme-free. -->
   </body>
 </html>

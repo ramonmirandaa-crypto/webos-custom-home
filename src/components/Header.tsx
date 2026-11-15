@@ -1,12 +1,17 @@
 import {useEffect, useState} from 'react';
 
+// The header anchors the tvOS menu bar. The overlay
+// (theme/tvos-theme.css) matches `.right-[24px]` and turns this into the
+// Sketch pill (menu bar 192x60 at top 50, right 50; buttons 58x58; clock 25px).
+// Keep the anchor class names and the button structure: the overlay counts on
+// `.right-[24px] span` / `.right-[24px] button` / `.right-[24px] button svg`.
 export default function Header ({
 	clock24,
 	focusedButton,
 	onOpenSettings
 }: {
 	clock24: boolean;
-	focusedButton?: 'settings' | 'filters' | null;
+	focusedButton?: 'settings' | null;
 	onOpenSettings: () => void;
 }) {
 	const [now, setNow] = useState(() => new Date());
@@ -66,23 +71,6 @@ export default function Header ({
 				</svg>
 			</button>
 
-			<button
-				type="button"
-				tabIndex={-1}
-				aria-label="Abrir preferências"
-				onClick={onOpenSettings}
-				className="flex h-10 w-10 items-center justify-center rounded-full p-0"
-				style={glassCircle(focusedButton === 'filters')}
-			>
-				<svg
-					className="h-[15px] w-[15px]"
-					style={{fill: focusedButton === 'filters' ? '#0A101A' : 'rgba(255,255,255,0.85)', filter: focusedButton === 'filters' ? 'none' : 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))'}}
-					viewBox="0 0 24 24"
-					aria-hidden="true"
-				>
-					<path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
-				</svg>
-			</button>
 		</header>
 	);
 }

@@ -1,104 +1,107 @@
-# Tutorial: From a stock LG TV to a custom Home
+# Tutorial: from a stock LG TV to Custom Home Lite
 
-This walks you all the way from an untouched LG webOS TV to booting straight into
-your own home screen. Budget an hour the first time. Nothing here writes to
-protected OS partitions — every step is reversible, and a full uninstall returns
-the TV to stock.
+This walks you from an untouched LG webOS TV to running your own home screen.
+Budget an hour the first time. Nothing here writes to protected OS partitions —
+every step is reversible, and a full uninstall returns the TV to stock.
+
+**This app targets Developer Mode only.** It does not take over boot or the Home
+button, needs no root, and ships no on-device service. That keeps the blast
+radius at zero: uninstalling the app removes everything.
 
 **Contents**
 
-1. [Decide: root vs. Developer Mode](#1-decide-root-vs-developer-mode)
-2. [Enable access on the TV](#2-enable-access-on-the-tv)
-3. [Install the tooling on your computer](#3-install-the-tooling-on-your-computer)
-4. [Register your TV with ares](#4-register-your-tv-with-ares)
-5. [Get the project and build it](#5-get-the-project-and-build-it)
+1. [Enable Developer Mode on the TV](#1-enable-developer-mode-on-the-tv)
+2. [Install the tooling on your computer](#2-install-the-tooling-on-your-computer)
+3. [Register your TV with ares](#3-register-your-tv-with-ares)
+4. [Get the project and build it](#4-get-the-project-and-build-it)
+5. [Set up the helper host](#5-set-up-the-helper-host)
 6. [First deploy](#6-first-deploy)
-7. [Make it yours (apps, weather, icons)](#7-make-it-yours-apps-weather-icons)
-8. [Take over the Home button and boot](#8-take-over-the-home-button-and-boot)
-9. [Find your remote's HOME key code](#9-find-your-remotes-home-key-code)
-10. [Uninstall / revert](#10-uninstall--revert)
+7. [Configure what shows up](#7-configure-what-shows-up)
+8. [Uninstall / revert](#8-uninstall--revert)
 
 ---
 
-## 1. Decide: root vs. Developer Mode
+## 1. Enable Developer Mode on the TV
 
-| | LG Developer Mode | Root (Homebrew Channel) |
-|---|---|---|
-| Sideload & run the app | ✅ | ✅ |
-| Home-button watcher | ⚠️ likely, unproven | ✅ |
-| **Boot straight into the app** | ❌ | ✅ |
-| Persistence | Session lapses wipe `/media/developer` | Survives reboots |
+1. On the TV, open the **LG Content Store** and install **Developer Mode**.
+2. Sign in with a free LG developer account and toggle **Dev Mode** on.
+3. Note the TV's IP address (**Settings → Network**) and give it a DHCP
+   reservation so it doesn't move. On this project the TV is `192.168.0.126`.
+4. In the Developer Mode app, set a **passphrase** and note the SSH port it
+   shows (usually `9922`).
 
-The blocker for the full experience is **persistence**, not permissions. If you
-just want to *open* the launcher yourself, Developer Mode is enough. If you want
-it to **be** your Home on every boot, you need root. This tutorial covers the
-root path; Developer-Mode users can follow along and simply stop before
-[step 8](#8-take-over-the-home-button-and-boot).
+> Developer Mode sessions expire (the app shows a countdown). When it lapses, the
+> TV drops your dev session and `/media/developer` can be wiped — reopen the
+> Developer Mode app, extend the session, and redeploy.
 
-## 2. Enable access on the TV
+## 2. Install the tooling on your computer
 
-**Root path (recommended):**
-
-1. Enable Developer Mode first: install **Developer Mode** from the LG Content
-   Store, sign in with a free LG developer account, toggle Dev Mode on.
-2. Root the TV with the [webOS Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel)
-   using the [rootmytv](https://rootmy.tv/) exploit for your firmware. Follow
-   their instructions for your exact webOS version.
-3. In the Homebrew Channel app, enable **Root system / SSH**.
-4. From your computer, confirm SSH works:
-   ```bash
-   ssh root@<TV_IP>       # default password is often "alpine" — change it
-   ```
-5. **Recommended:** install an SSH key so deploys are keyless.
-   ```bash
-   ssh-copy-id root@<TV_IP>       # or append your pubkey to /home/root/.ssh/authorized_keys
-   ```
-
-Find `<TV_IP>` under **Settings → Network** on the TV. Give the TV a DHCP
-reservation so the IP doesn't move.
-
-**Developer-Mode-only path:** enable Dev Mode as above; sideloading uses the
-dev-mode passphrase instead of SSH root. Skip the Homebrew steps.
-
-## 3. Install the tooling on your computer
+Node.js 18+ and the webOS CLI:
 
 ```bash
-# Node 18+ (https://nodejs.org)
-node -v
-
-# webOS CLI — provides ares-setup-device, ares-package, ares-install, ares-launch
-npm install -g @webos-tools/cli
-ares-setup-device --version
+npm i -g @webos-tools/cli      # provides ares-setup-device, ares-install, ares-launch, …
 ```
 
-## 4. Register your TV with ares
+## 3. Register your TV with ares
 
 ```bash
-ares-setup-device
+ares-setup-device              # add a device named "tv"
+ares-setup-device --list       # confirm
 ```
 
-Add a device (name it **`tv`** to match the defaults). For a **rooted** TV use
-`root` @ port `22` with your SSH key; for **Developer Mode** use the `prisoner`
-account @ port `9922` with the dev-mode passphrase. Verify:
+For Developer Mode, the device profile looks like:
 
-```bash
-ares-setup-device --list
-ares-launch --device tv --listApp     # should print the apps installed on your TV
+```
+name          deviceinfo                    connection  profile  passphrase
+tv            prisoner@192.168.0.126:9922   ssh         tv       517943
 ```
 
-That last command doubles as your source of truth for **app IDs** in step 7.
+The profile is named **`tv`** to match the deploy script's default; override
+with `TV_DEVICE=<name> npm run deploy` if you used something else.
 
-## 5. Get the project and build it
+## 4. Get the project and build it
 
 ```bash
-git clone https://github.com/zzeppieri/webos-custom-home.git
+git clone <this repo> webos-custom-home
 cd webos-custom-home
 npm install
-npm run dev        # optional: preview in a desktop browser at the printed URL
+npm run build          # sanity check: should finish without type errors
 ```
 
-In the browser, LunaService calls no-op (you're not on the TV), but the layout,
-clock, weather, and navigation all work — this is where you iterate on look.
+`npm run dev` serves the UI in a desktop browser for fast iteration — Luna calls
+no-op off-TV, so launching and credentials are inert there.
+
+## 5. Set up the helper host
+
+Developer mode denies `applicationManager/*` to web apps, so the launcher's last
+resort for opening apps is a helper on the TV's LAN. Any always-on machine on the
+same network works; on this project it is `server-t5` (`192.168.0.77`).
+
+The helper needs `python3` and the same `ares` CLI, plus the TV's dev-mode SSH
+key at `/root/.ssh/tv_webos_nopass`:
+
+```bash
+# On the TV side: copy the dev-mode key you already use with ares
+# On the helper host:
+scp -r scripts deploy <helper-host>:/tmp/tvh-src/
+ssh <helper-host> 'cd /tmp/tvh-src && sh deploy/install-tv-helper.sh'
+```
+
+That creates `/opt/tv-launch-helper`, an unprivileged service user, the
+`tv-launch-helper` unit, and a token in `/etc/tv-launch-helper/tv-helper.env`.
+It opens port `8110` to the LAN subnet only.
+
+Then point the app at it:
+
+```bash
+ssh <helper-host> 'grep TV_HELPER_TOKEN /etc/tv-launch-helper/tv-helper.env'
+cp .env.example .env.local        # fill in URL + token
+npm run build
+```
+
+`.env.local` is gitignored. The token is compiled into the bundle — see
+[`docs/SECURITY.md`](../docs/SECURITY.md) for what that does and does not
+protect against.
 
 ## 6. First deploy
 
@@ -106,85 +109,42 @@ clock, weather, and navigation all work — this is where you iterate on look.
 npm run deploy
 ```
 
-If your ares profile isn't named `tv`, or the TV isn't at the default IP:
+This builds, packages `dist/`, prints the manifest with
+`ares-package --info-detail` (so you can see the version/icons the TV will read),
+and installs. Then open **Home Lite** from the TV's app list, or:
 
 ```bash
-TV_DEVICE=myprofile TV_IP=192.168.1.50 npm run deploy
+ares-launch --device tv br.com.customhome.lite
 ```
 
-You should see build → package → install → launch, ending with
-`✓ deployed; app launched + Home watcher re-armed`, and the app should appear on
-the TV. If packaging errors with *"Failed to minify code,"* you're missing
-`--no-minify` — the bundled script already includes it, so use `npm run deploy`.
+## 7. Configure what shows up
 
-## 7. Make it yours (apps, weather, icons)
+| What | Where |
+|------|-------|
+| App tiles, labels, brand colors | [`src/lib/at4k-data.ts`](../src/lib/at4k-data.ts) |
+| App icons | [`public/icons/`](../public/icons/) |
+| Live-channel category order | `CATEGORY_PRIORITY` in [`src/lib/iptv.ts`](../src/lib/iptv.ts) |
+| Wallpaper | `public/wallpaper.jpg` (1920×1080) |
 
-**Apps** — edit [`src/lib/apps.ts`](../src/lib/apps.ts). Each tile:
-
-```ts
-{ id: 'netflix', title: 'Netflix', color: '#e50914', icon: 'icons/netflix.png' }
-```
-
-- `id` must be a real app ID from `ares-launch --device tv --listApp`.
-- HDMI inputs use `launchType: 'input'`, e.g. `com.webos.app.hdmi2` for a PS5.
-- The app also merges your TV's real launch points at runtime, dropping any it
-  doesn't recognize into **Misc** — so unlisted apps still appear.
-
-**Weather** — set your coordinates in
-[`src/service/weather.ts`](../src/service/weather.ts). Open-Meteo needs no key.
-
-**Icons** — drop `.png` files into [`public/icons/`](../public/icons/) and
-reference them by `icons/<name>.png`. WAM sandboxes web apps, so you can't point
-at another app's icon on disk — bundle a copy. Missing icons fall back to a
-monogram.
-
-Re-run `npm run deploy` after any change.
-
-## 8. Take over the Home button and boot
-
-*(Rooted TVs only.)*
-
-`npm run deploy` already installs the in-package LunaService and starts it with
-`--boot --watch`. To make it **survive reboots**, symlink the autostart hook into
-webosbrew's init.d on the TV:
+App IDs must exist on the panel. List what is actually installed:
 
 ```bash
-ssh root@<TV_IP>
-SVC=/media/developer/apps/usr/palm/services/tld.my.customhome.service
-ln -sf "$SVC/autostart.sh" /var/lib/webosbrew/init.d/49-custom-home
-reboot
+ares-install --device tv --list
 ```
 
-After reboot the TV should come up in your custom Home, and pressing **HOME** on
-the remote should return to it from any app. How this works — the registered
-service, the non-blocking input poll, and the wake-from-standby heartbeat — is
-described in the [README](../README.md#how-the-home-takeover-works).
+Then set IPTV credentials on the TV itself: **Settings (gear) → Configurar IPTV**
+— the TV's own virtual keyboard appears for each field, so nothing is typed
+through a homemade input handler.
 
-## 9. Find your remote's HOME key code
-
-If the HOME button doesn't bring you back, your remote likely uses a different
-key code than the default `773`. Find yours:
+## 8. Uninstall / revert
 
 ```bash
-ssh root@<TV_IP>
-cat /dev/input/event*        # press HOME a few times, watch for a repeating code
+ares-install --device tv --remove br.com.customhome.lite
 ```
 
-Set the value you observe as `HOME_CODE` in
-[`service/service.js`](../service/service.js), then `npm run deploy` again.
-
-## 10. Uninstall / revert
+That is the whole revert: no OS files, no services, no init hooks. If you also
+installed the helper, remove it on the helper host:
 
 ```bash
-# remove the boot hook, then the app
-ssh root@<TV_IP> "rm -f /var/lib/webosbrew/init.d/49-custom-home"
-ares-install --device tv --remove tld.my.customhome
+ssh <helper-host> 'systemctl disable --now tv-launch-helper && rm -rf /opt/tv-launch-helper /etc/tv-launch-helper /etc/systemd/system/tv-launch-helper.service && systemctl daemon-reload'
 ```
-
-Nothing modified the read-only OS, so removing the app and the init.d symlink
-fully restores stock behavior. A factory reset is never required.
-
----
-
-**Stuck?** See [Troubleshooting](../README.md#troubleshooting) in the README, or
-open an issue.

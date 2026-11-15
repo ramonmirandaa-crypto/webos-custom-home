@@ -1,24 +1,24 @@
 #!/bin/sh
-# webOS Custom Home — on-device uninstaller. Run with:
-#   ssh root@<TV_IP> "curl -fsSL https://github.com/zzeppieri/webos-custom-home/releases/download/v0.4.2/tv-uninstall.sh | sh"
-# Removes the boot hook, stops the watcher, and removes the app. Restores stock
-# behavior — nothing touched the read-only OS, so no factory reset is needed.
+# Remove Custom Home Lite from the TV.
+#
+#   sh installer/tv-uninstall.sh
+#
+# Run this ON the helper host. This is the whole revert: the app owns no OS
+# files, no services, and no boot hooks.
+set -eu
 
-APP_ID="tld.my.customhome"
-INITD="/var/lib/webosbrew/init.d/50-customhome"
+APP_ID=br.com.customhome.lite
+DEVICE="${TV_DEVICE:-tv}"
 
-echo "==> Removing boot autostart hook..."
-rm -f "$INITD"
+command -v ares-install >/dev/null 2>&1 || { echo "ERROR: ares CLI missing" >&2; exit 1; }
 
-echo "==> Stopping the HOME watcher..."
-[ -f /tmp/home-svc.pid ] && kill -9 "$(cat /tmp/home-svc.pid)" 2>/dev/null
-rm -f /tmp/home-svc.pid
+echo "==> removing $APP_ID from device '$DEVICE'"
+ares-install --device "$DEVICE" --remove "$APP_ID"
 
-echo "==> Removing the app..."
-luna-send -n 1 -f luna://com.webos.appInstallService/dev/remove \
-  "{\"id\":\"${APP_ID}\",\"subscribe\":false}" >/dev/null 2>&1
-# Fallback: also try the Homebrew Channel uninstall path.
-luna-send -n 1 -f luna://org.webosbrew.hbchannel.service/uninstall \
-  "{\"id\":\"${APP_ID}\"}" >/dev/null 2>&1
+echo "✓ removed. Stock Home is untouched — this app never replaced it."
 
-echo "✓ Uninstalled. Your TV's stock Home returns on the next reboot."
+# The LAN helper lives on this host, not the TV. Remove it separately if you no
+# longer need it:
+#   systemctl disable --now tv-launch-helper
+#   rm -rf /opt/tv-launch-helper /etc/tv-launch-helper
+#   rm -f /etc/systemd/system/tv-launch-helper.service && systemctl daemon-reload

@@ -7,7 +7,7 @@ import {type PlayItem} from './components/Player';
 const Player = lazy(() => import('./components/Player').then((m) => ({default: m.Player})));
 import {SeriesPicker} from './components/SeriesPicker';
 import {DEFAULT_AT4K_APPS, type AT4KAppItem} from './lib/at4k-data';
-import {launchApp, listLaunchPoints, blockScreenSaver, isWebOS} from './service/luna';
+import {launchAppWithReason, platformBack, isWebOS} from './service/luna';
 import {loadClock24, saveClock24} from './lib/prefs';
 import {
 	readCachedLive,
@@ -26,13 +26,18 @@ import {
 	type EpisodeItem,
 	type EpgProgram
 } from './lib/iptv';
-import {loadIptvConfig, saveIptvConfig, hasIptvConfig, type IptvConfig} from './lib/iptv';
+import {loadIptvConfig, hasIptvConfig, type IptvConfig} from './lib/iptv';
+import {initIptvSecrets, saveIptvSecrets, storageMode, type StorageMode} from './lib/secrets';
 
 const DOCK_COUNT = 6;
 const GRID_COLS = 6;
 const ORDER_KEY = 'at4k-app-order-v2';
 const HIDDEN_KEY = 'at4k-hidden-v2';
 
+// Tile metrics. These feed the carousel math, not the final size: the tvOS
+// overlay (theme/tvos-theme.css) resizes the app tiles and the content rows to
+// the Sketch reference via their Tailwind classes. Keep the values here as the
+// pre-theme baseline so the app still lays out if the overlay is absent.
 const LIVE_W = 160;
 const LIVE_GAP = 18;
 const POSTER_W = 80;
@@ -173,7 +178,6 @@ export default function App () {
 		return {section: 'apps', row: 0, col: 0};
 	});
 	const [inHeader, setInHeader] = useState<boolean>(false);
-	const [headerCol, setHeaderCol] = useState<'settings' | 'filters'>('settings');
 	const [reordering, setReordering] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [clock24, setClock24] = useState(loadClock24);
@@ -187,6 +191,14 @@ export default function App () {
 	}, []);
 	const [toast, setToast] = useState<string | null>(null);
 	const [iptvConfig, setIptvConfig] = useState<IptvConfig>(() => loadIptvConfig());
+	const [iptvSecretsMode, setIptvSecretsMode] = useState<StorageMode>(() => storageMode());
+	// System UI visibility, fed by the official cursorStateChange /
+	// keyboardStateChange events. Declared here (not next to their listeners)
+	// because the data-loading effects below read them in dependency arrays.
+	// https://webostv.developer.lge.com/develop/guides/system-ui-visibility
+	const [cursorVisible, setCursorVisible] = useState(true);
+	const [keyboardVisible, setKeyboardVisible] = useState(false);
+	const [appForeground, setAppForeground] = useState(true);
 
 	const [channels, setChannels] = useState<LiveChannel[]>(() => readCachedLive());
 	const [movies, setMovies] = useState<MovieItem[]>(() => readCachedMovies());
@@ -297,9 +309,15 @@ export default function App () {
 	}, []);
 
 	const handleSaveIptv = useCallback((cfg: IptvConfig) => {
-		saveIptvConfig(cfg);
 		setIptvConfig(cfg);
-		showToast('Configuração IPTV salva');
+		saveIptvSecrets(cfg)
+			.then((m) => {
+				setIptvSecretsMode(m);
+				showToast(m === 'keymanager'
+					? 'Configuração IPTV salva com criptografia'
+					: 'Configuração salva sem criptografia (Keymanager3 indisponível)');
+			})
+			.catch(() => showToast('Não foi possível salvar a configuração IPTV'));
 	}, [showToast]);
 
 	// Keep focus on a rendered item after data/order changes.
@@ -323,8 +341,10 @@ export default function App () {
 	}, [channels, movies, series, appsRows, settingsOpen, sectionRows]);
 
 	// Load IPTV lists: cache first (instant render), refresh in background.
+	// Skipped while the app is backgrounded — the panel streams slowly and there is
+	// no point burning the TV's network while a system overlay owns the screen.
 	useEffect(() => {
-		if (!hasIptvConfig()) return;
+		if (!hasIptvConfig() || !appForeground) return;
 		const timers: number[] = [];
 		const withRetry = (run: () => Promise<unknown>, after: () => void) => {
 			run()
@@ -356,11 +376,11 @@ export default function App () {
 			() => {}
 		);
 		return () => timers.forEach((t) => window.clearTimeout(t));
-	}, [iptvConfig]);
+	}, [iptvConfig, appForeground]);
 
 	// EPG for the curated live row
 	useEffect(() => {
-		if (!channels.length) return;
+		if (!channels.length || !appForeground) return;
 		let cancelled = false;
 		(async () => {
 			for (const ch of channels) {
@@ -373,65 +393,66 @@ export default function App () {
 		return () => {
 			cancelled = true;
 		};
-	}, [channels]);
+	}, [channels, appForeground]);
 
-	// Merge launch-point icons from the TV
+	// System UI visibility. The official events tell us when the Magic Remote
+	// cursor is hidden (5-way mode) or when the TV's own overlay/keyboard covers
+	// us. While an overlay owns the screen we stop background polling and drop
+	// pointer hover, so nothing fights the system for input.
 	useEffect(() => {
-		if (!isWebOS()) return;
-		let cancelled = false;
-		let attempts = 0;
-		const tryFetch = () => {
-			if (cancelled) return;
-			listLaunchPoints()
-				.then((res) => {
-					if (cancelled) return;
-					setApps((prev) => {
-						const launchPoints = res.launchPoints || [];
-						const byId = new Map(launchPoints.map((lp) => [lp.id, lp]));
-						const existing = new Set(prev.map((app) => app.id));
-						let changed = false;
-
-						const merged = prev.map((app) => {
-							// The TV's own icon is the official art for what's installed —
-							// keep it apart from the bundled fallback so neither clobbers the other.
-							const launchPoint = byId.get(app.id);
-							if (!launchPoint?.icon || launchPoint.icon === app.tvIcon) return app;
-							changed = true;
-							return {...app, tvIcon: launchPoint.icon};
-						});
-
-						for (const launchPoint of launchPoints) {
-							if (existing.has(launchPoint.id)) continue;
-							changed = true;
-							merged.push({
-								id: launchPoint.id,
-								title: launchPoint.title,
-								label: launchPoint.title,
-								icon: launchPoint.icon,
-								cardBg: '#263944',
-								textColor: '#FFFFFF',
-								logoType: 'generic'
-							});
-						}
-
-						if (!changed) return prev;
-						saveOrder(merged.map((app) => app.id));
-						return merged;
-					});
-				})
-				.catch(() => {
-					if (cancelled) return;
-					attempts += 1;
-					if (attempts < 2) window.setTimeout(tryFetch, 3000);
-				});
+		// Both events carry their state in `detail`; older firmware reports a bare
+		// boolean, so accept either shape.
+		const readVisibility = (e: Event): boolean | undefined => {
+			const detail = (e as Event & {detail?: {visibility?: boolean; visible?: boolean} | boolean}).detail;
+			if (typeof detail === 'boolean') return detail;
+			return detail?.visibility ?? detail?.visible;
 		};
-		tryFetch();
+		const onCursor = (e: Event) => {
+			const visible = readVisibility(e);
+			if (typeof visible === 'boolean') setCursorVisible(visible);
+		};
+		const onKeyboard = (e: Event) => {
+			const visible = readVisibility(e);
+			if (typeof visible === 'boolean') setKeyboardVisible(visible);
+		};
+		const onBlur = () => setAppForeground(false);
+		const onFocus = () => setAppForeground(true);
+
+		document.addEventListener('cursorStateChange', onCursor);
+		document.addEventListener('keyboardStateChange', onKeyboard);
+		window.addEventListener('blur', onBlur);
+		window.addEventListener('focus', onFocus);
 		return () => {
-			cancelled = true;
+			document.removeEventListener('cursorStateChange', onCursor);
+			document.removeEventListener('keyboardStateChange', onKeyboard);
+			window.removeEventListener('blur', onBlur);
+			window.removeEventListener('focus', onFocus);
 		};
 	}, []);
 
-	useEffect(() => blockScreenSaver(), []);
+	// Hover only moves focus when the app owns the screen and no system overlay
+	// is up; in 5-way mode the cursor is gone and hover would be phantom input.
+	const pointerIdle = !appForeground || !cursorVisible || keyboardVisible;
+	const handleHover = useCallback((pos: FocusPos) => {
+		if (pointerIdle) return;
+		setFocus(pos);
+	}, [pointerIdle]);
+
+	// Decrypt the IPTV credentials from the TEE (Keymanager3) once at startup.
+	// Migrates any plaintext config from earlier builds and records where the
+	// credentials ended up so Settings can warn when the TEE was unavailable.
+	useEffect(() => {
+		let cancelled = false;
+		initIptvSecrets()
+			.then((res) => {
+				if (cancelled) return;
+				setIptvConfig(res.config);
+				setIptvSecretsMode(res.mode);
+				if (res.migrated) showToast('Credenciais IPTV movidas para o armazenamento seguro');
+			})
+			.catch(() => { /* worst case: stays unconfigured, Settings still opens */ });
+		return () => { cancelled = true; };
+	}, [showToast]);
 
 	// Vertical scroll using fast Ref Map lookup instead of DOM querySelector
 	useEffect(() => {
@@ -525,13 +546,30 @@ export default function App () {
 			return;
 		}
 		if (isWebOS()) {
-			launchApp(app.id).catch(() => {
-				showToast(`Não foi possível abrir ${app.title}`);
+			launchAppWithReason(app.id).catch((e: Error) => {
+				showToast(`Não foi possível abrir ${app.title}: ${e.message}`);
 			});
 		} else {
 			console.log('Launch:', app.id);
 		}
 	}, [playChannel, playMovie, openSeriesPicker, showToast]);
+
+	// Magic Remote: click launches the tile directly (same path as OK).
+	const selectApp = useCallback((rowIdx: number, colIdx: number) => {
+		const app = appsRowsRef.current[rowIdx]?.[colIdx];
+		if (!app) return;
+		if (app.launchType === 'internal') {
+			setSettingsOpen(true);
+			return;
+		}
+		if (isWebOS()) {
+			launchAppWithReason(app.id).catch((e: Error) => {
+				showToast(`Não foi possível abrir ${app.title}: ${e.message}`);
+			});
+		} else {
+			console.log('Launch:', app.id);
+		}
+	}, [showToast]);
 
 	// ZERO-LATENCY KEYDOWN HANDLER: Attached ONCE, reads state via refs.
 	// Never torn down/re-attached during navigation.
@@ -550,7 +588,6 @@ export default function App () {
 
 		const clampUp = (f: FocusPos): FocusPos | 'header' => {
 			const orderIdx = SECTION_ORDER.indexOf(f.section);
-			if (orderIdx === 0) return 'header';
 			for (let i = orderIdx - 1; i >= 0; i--) {
 				const rs = sectionRows(SECTION_ORDER[i]);
 				if (rs.length && (rs[rs.length - 1] as unknown[]).length > 0) {
@@ -559,7 +596,10 @@ export default function App () {
 					return {section: SECTION_ORDER[i], row: lastRowIdx, col: Math.min(f.col, Math.max(0, row.length - 1))};
 				}
 			}
-			return f;
+			// Nothing rendered above this section — which is the normal case when no
+			// IPTV provider is configured and the apps grid is the first thing on
+			// screen. The header is next, otherwise it would be unreachable.
+			return 'header';
 		};
 
 		const onKeyDown = (e: KeyboardEvent) => {
@@ -587,22 +627,19 @@ export default function App () {
 					if (cand.length && (cand[0] as unknown[]).length) { target = {section: s, row: 0, col: 0}; break; }
 				}
 				if (f.section !== target.section || f.row !== target.row || f.col !== target.col) {
+					// Not at the top level yet — Back walks up instead of exiting.
 					setFocus(target);
+					return;
 				}
+				// Root level: hand Back to the platform, which shows the official
+				// "exit app?" popup on webOS TV 6.0+ (Home launcher on 5.0 and lower).
+				// https://webostv.developer.lge.com/develop/guides/back-button
+				if (platformBack()) return;
+				window.close();
 				return;
 			}
 
 			if (inHeaderRef.current) {
-				if (e.key === 'ArrowLeft') {
-					e.preventDefault();
-					setHeaderCol('settings');
-					return;
-				}
-				if (e.key === 'ArrowRight') {
-					e.preventDefault();
-					setHeaderCol('filters');
-					return;
-				}
 				if (e.key === 'ArrowDown') {
 					e.preventDefault();
 					setInHeader(false);
@@ -669,7 +706,6 @@ export default function App () {
 					const prev = clampUp(f);
 					if (prev === 'header') {
 						setInHeader(true);
-						setHeaderCol('settings');
 					} else if (prev !== f) {
 						setFocus(prev);
 					}
@@ -726,14 +762,16 @@ export default function App () {
 
 	return (
 		<>
-			<div
-				className="fixed inset-0"
-				style={{background: 'url(./wallpaper.jpg) center/cover', filter: 'blur(28px) brightness(0.55)'}}
+			<img
+				src="./wallpaper.jpg"
+				alt=""
+				draggable={false}
+				className="fixed inset-0 h-full w-full object-cover"
 			/>
 			<div
 				className="launcher-shell absolute left-0 top-0 select-none"
 				style={{
-					background: '#050506',
+					background: 'transparent',
 					width: 1920,
 					height: 1080,
 					transform: `scale(${fit.sx}, ${fit.sy})`,
@@ -743,21 +781,19 @@ export default function App () {
 				<div className="pointer-events-none absolute inset-0 bg-cover bg-center" style={{backgroundImage: 'url(./wallpaper.jpg)'}} />
 			<div className="pointer-events-none absolute inset-x-0 top-0 h-[180px]" style={{background: 'linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0))'}} />
 			<div className="pointer-events-none absolute inset-x-0 bottom-0 h-[260px]" style={{background: 'linear-gradient(0deg, rgba(0,0,0,0.55), rgba(0,0,0,0))'}} />
-				<div
-					className="pointer-events-none absolute left-[50%] top-[42%] h-[360px] w-[1460px] -translate-x-1/2 -translate-y-1/2"
-					style={{background: 'radial-gradient(closest-side, rgba(86,124,255,0.2), rgba(120,64,220,0.13) 46%, rgba(0,0,0,0) 78%)'}}
-				/>
-				<div className="pointer-events-none absolute left-[12%] top-[58%] h-[300px] w-[420px]" style={{background: 'radial-gradient(closest-side, rgba(42,196,214,0.16), rgba(0,0,0,0) 70%)'}} />
-				<div className="pointer-events-none absolute right-[10%] top-[56%] h-[300px] w-[420px]" style={{background: 'radial-gradient(closest-side, rgba(255,92,128,0.14), rgba(0,0,0,0) 70%)'}} />
 
-				<div className="absolute left-[41px] top-[21px] z-40">
-					<p className="text-[21px] font-semibold tracking-tight text-white/92" style={{textShadow: '0 1px 6px rgba(0,0,0,0.8)'}}>
-						Início
-					</p>
-				</div>
+			{/* Screen title. The tvOS overlay places it at the Sketch margin
+			    (.left-[41px] -> left 90 / top 50) and sets its type; keep the
+			    anchor classes so the overlay keeps matching. */}
+			<div className="absolute left-[41px] top-[21px] z-40">
+				<p className="text-[21px] font-semibold tracking-tight text-white/92" style={{textShadow: '0 1px 6px rgba(0,0,0,0.8)'}}>
+					Início
+				</p>
+			</div>
+
 				<Header
 					clock24={clock24}
-					focusedButton={inHeader ? headerCol : null}
+					focusedButton={inHeader ? 'settings' : null}
 					onOpenSettings={() => setSettingsOpen(true)}
 				/>
 
@@ -779,7 +815,7 @@ export default function App () {
 							<SectionTitle title="Ao vivo" count={channels.length || undefined} />
 							<div className="mt-[11px] overflow-hidden px-[98px] pb-[64px]">
 								{liveError && channels.length === 0 ? (
-									<p className="text-[16px] font-medium text-white/45">O provedor IPTV está lento — tentando novamente…</p>
+									<p className="text-[20px] font-medium text-white/50">O provedor IPTV está lento — tentando novamente…</p>
 								) : (
 									<Row
 										tileWidth={LIVE_W}
@@ -800,6 +836,7 @@ export default function App () {
 														focused={!inHeader && focus.section === 'live' && focus.col === i}
 														epg={epgMap[ch.id] ?? null}
 														enter={playChannel}
+														onHover={() => { if (!inHeader) handleHover({section: 'live', row: 0, col: i}); }}
 													/>
 												</div>
 											))
@@ -831,8 +868,9 @@ export default function App () {
 													item={m}
 													kind="movie"
 													size="md"
-													focused={focus.section === 'films' && focus.col === i}
+													focused={!inHeader && focus.section === 'films' && focus.col === i}
 													enter={(item) => playMovie(item as MovieItem)}
+													onHover={() => { if (!inHeader) handleHover({section: 'films', row: 0, col: i}); }}
 												/>
 											</div>
 										))
@@ -863,8 +901,9 @@ export default function App () {
 													item={s}
 													kind="series"
 													size="md"
-													focused={focus.section === 'series' && focus.col === i}
+													focused={!inHeader && focus.section === 'series' && focus.col === i}
 													enter={(item) => openSeriesPicker(item as SeriesItem)}
+													onHover={() => { if (!inHeader) handleHover({section: 'series', row: 0, col: i}); }}
 												/>
 											</div>
 										))
@@ -873,17 +912,10 @@ export default function App () {
 							</div>
 						</section>
 							</>
-						) : (
-							<section aria-label="Configurar IPTV">
-								<div className="px-[98px] pt-[8px]">
-									<p className="text-[18px] font-medium text-white/60">Sem IPTV configurado — abra Ajustes para conectar sua lista.</p>
-								</div>
-							</section>
-						)}
+						) : null}
 
 						{/* Apps */}
 						<section aria-label="Aplicativos">
-							<SectionTitle title="Apps" count={visibleApps.length || undefined} />
 							<div className="mt-[19px] flex items-center justify-center" aria-label="Aplicativos favoritos">
 								<div className="flex items-center gap-8">
 									{appsRows[0]?.map((app, colIdx) => (
@@ -892,6 +924,8 @@ export default function App () {
 												app={app}
 												focused={!inHeader && focus.section === 'apps' && focus.row === 0 && focus.col === colIdx}
 												reordering={reordering && focus.section === 'apps' && focus.row === 0 && focus.col === colIdx}
+												onSelect={() => selectApp(0, colIdx)}
+												onHover={() => { if (!inHeader) handleHover({section: 'apps', row: 0, col: colIdx}); }}
 											/>
 										</div>
 									))}
@@ -908,6 +942,8 @@ export default function App () {
 														app={app}
 														focused={focus.section === 'apps' && focus.row === rowIdx && focus.col === colIdx}
 														reordering={reordering && focus.section === 'apps' && focus.row === rowIdx && focus.col === colIdx}
+														onSelect={() => selectApp(rowIdx, colIdx)}
+														onHover={() => handleHover({section: 'apps', row: rowIdx, col: colIdx})}
 													/>
 												</div>
 											))}
@@ -946,6 +982,7 @@ export default function App () {
 						onFps={handleFps}
 						iptvConfig={iptvConfig}
 						onSaveIptv={handleSaveIptv}
+						iptvPlaintextFallback={iptvSecretsMode === 'local'}
 					/>
 				)}
 
@@ -955,7 +992,7 @@ export default function App () {
 
 				{play && (
 					<Suspense fallback={null}>
-						<Player item={play.item} onClose={() => setPlay(null)} onZap={handleZap} onEnter={() => setPlay(null)} />
+						<Player item={play.item} onClose={() => setPlay(null)} onZap={handleZap} />
 					</Suspense>
 				)}
 

@@ -1,7 +1,8 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {APP_VERSION} from '../lib/version';
 import type {AT4KAppItem} from '../lib/at4k-data';
 import type {IptvConfig} from '../lib/iptv';
+import {BACK_KEYCODE} from '../service/luna';
 
 const ACCENT = '#7ca8ff';
 
@@ -10,58 +11,49 @@ type Row =
 	| {kind: 'action'; label: string; hint: string; action: 'reset' | 'apps' | 'iptv'}
 	| {kind: 'info'; label: string; value: string};
 
-const IPTV_FIELDS: {label: string; key: 'base' | 'user' | 'pass'; type: 'text' | 'password'}[] = [
-	{label: 'URL base', key: 'base', type: 'text'},
-	{label: 'Usuário', key: 'user', type: 'text'},
-	{label: 'Senha', key: 'pass', type: 'password'}
+const IPTV_FIELDS: {label: string; key: 'base' | 'user' | 'pass'; type: 'text' | 'url' | 'password'; hint: string}[] = [
+	{label: 'URL base', key: 'base', type: 'url', hint: 'Ex.: https://painel.exemplo.com:8080'},
+	{label: 'Usuário', key: 'user', type: 'text', hint: 'Usuário do painel Xtream'},
+	{label: 'Senha', key: 'pass', type: 'password', hint: 'Senha do painel Xtream'}
 ];
 
-// Import credentials from a short paste.rs code (typed on a phone, read here):
-// the paste holds JSON, base|user|pass, a full Xtream URL, or 3 lines.
-// Fetched through a CORS proxy; failure just reports 'fail', never throws.
-async function fetchImportConfig (code: string): Promise<IptvConfig | null> {
-	const id = code.trim();
-	if (!/^[a-zA-Z0-9]{4,12}$/.test(id)) return null;
-	try {
-		const r = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://paste.rs/' + id));
-		if (!r.ok) return null;
-		const text = (await r.text()).trim();
-		if (!text || text.length > 500) return null;
-		if (text.startsWith('{')) {
-			const o = JSON.parse(text);
-			if (o && typeof o.base === 'string' && typeof o.user === 'string' && o.base && o.user) {
-				return {base: o.base.trim(), user: o.user.trim(), pass: typeof o.pass === 'string' ? o.pass.trim() : ''};
-			}
-			return null;
-		}
-		if (text.includes('|')) {
-			const [base = '', user = '', pass = ''] = text.split('|').map((s) => s.trim());
-			return base && user ? {base, user, pass} : null;
-		}
-		const lines = text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-		const urlLine = lines.find((l) => /^https?:\/\//i.test(l));
-		if (urlLine) {
-			const u = new URL(urlLine);
-			const user = u.searchParams.get('username') || '';
-			if (user) return {base: u.origin, user, pass: u.searchParams.get('password') || ''};
-		}
-		if (lines.length >= 3) return {base: lines[0], user: lines[1], pass: lines[2]};
-		return null;
-	} catch {
-		return null;
-	}
+/** Plain-HTTP panel base: allowed, but the credentials travel unencrypted. */
+function isInsecureBase (base: string): boolean {
+	return /^http:\/\//i.test(base.trim());
 }
 
-function AppsPane ({apps, hidden, row}: {apps: AT4KAppItem[]; hidden: Set<string>; row: number}) {
+// Settings overlay.
+//
+// STRUCTURE IS A CONTRACT. The tvOS overlay (theme/tvos-theme.css) restyles this
+// panel by matching its Tailwind classes:
+//   .w-[740px]            -> the 480px Control Center panel (padding 24, r50)
+//   .w-[740px] .gap-3     -> 2-column grid of 208px tiles
+//   .gap-3 > div:nth-child(n) -> tile placement (1 = large, 4 = full width)
+//   div[style*="0.12"]    -> the focused tile inverts to white + black text
+//   .w-[740px] h2 / p     -> title and hint typography
+// So: keep `w-[740px]`, keep the `gap-3` wrappers, keep rows as <div> children
+// in order, and keep the focused background at exactly rgba(255,255,255,0.12).
+// Pointer handling is done with handlers on those divs, not by changing the tag.
+
+function AppsPane ({apps, hidden, row, onToggle, onFocusRow}: {
+	apps: AT4KAppItem[];
+	hidden: Set<string>;
+	row: number;
+	onToggle: (id: string) => void;
+	onFocusRow: (r: number) => void;
+}) {
 	return (
-		<div className="flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto pr-2">
+		<div className="flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto pr-2" style={{scrollbarWidth: 'none'}}>
 			{apps.map((app, i) => {
 				const focused = i === row;
 				const shown = !hidden.has(app.id);
 				return (
 					<div
 						key={app.id}
-						className="flex items-center justify-between rounded-xl px-6 py-3 transition-colors"
+						role="button"
+						onClick={() => { onFocusRow(i); onToggle(app.id); }}
+						onMouseEnter={() => onFocusRow(i)}
+						className="flex cursor-pointer items-center justify-between rounded-xl px-6 py-3 transition-colors"
 						style={{
 							background: focused ? `${ACCENT}22` : 'rgba(255,255,255,0.03)',
 							border: `1px solid ${focused ? `${ACCENT}88` : 'transparent'}`
@@ -80,7 +72,7 @@ function AppsPane ({apps, hidden, row}: {apps: AT4KAppItem[]; hidden: Set<string
 	);
 }
 
-export default function Settings ({onClose, onOrderReset, apps, hidden, onToggleHide, clock24, onClock24, fps, onFps, iptvConfig, onSaveIptv}: {
+export default function Settings ({onClose, onOrderReset, apps, hidden, onToggleHide, clock24, onClock24, fps, onFps, iptvConfig, onSaveIptv, iptvPlaintextFallback}: {
 	onClose: () => void;
 	onOrderReset: () => void;
 	apps: AT4KAppItem[];
@@ -92,15 +84,16 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 	onFps: (v: boolean) => void;
 	iptvConfig: IptvConfig;
 	onSaveIptv: (cfg: IptvConfig) => void;
+	/** Keymanager3 refused to hold the key: stored in localStorage in the clear. */
+	iptvPlaintextFallback: boolean;
 }) {
 	const [pane, setPane] = useState<'main' | 'apps' | 'iptv'>('main');
 	const [row, setRow] = useState(0);
 	const [resetDone, setResetDone] = useState(false);
 	const [iptvDraft, setIptvDraft] = useState<IptvConfig>({base: iptvConfig.base, user: iptvConfig.user, pass: iptvConfig.pass});
-	const [editField, setEditField] = useState<number | null>(null);
-	const [importMode, setImportMode] = useState(false);
-	const [importCode, setImportCode] = useState('');
-	const [importMsg, setImportMsg] = useState<string | null>(null);
+	const [saved, setSaved] = useState(false);
+
+	const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
 	const ROWS: Row[] = [
 		{
@@ -118,84 +111,44 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 	];
 
 	const manageable = apps.filter((a) => a.launchType !== 'internal');
-	const rowCount = pane === 'main' ? ROWS.length : (pane === 'apps' ? manageable.length : IPTV_FIELDS.length + 2);
+	const iptvRows = IPTV_FIELDS.length + 1;                       // fields + Salvar
+	const rowCount = pane === 'main' ? ROWS.length : (pane === 'apps' ? manageable.length : iptvRows);
 
+	// The TV raises its own virtual keyboard for the focused <input>. While a
+	// field owns the keyboard, navigation keys belong to the field, not to us —
+	// otherwise Back would close the panel mid-typing and OK would swallow space.
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
-			const isBack = e.keyCode === 461 || e.key === 'GoBack' || e.key === 'Escape' || e.key === 'Backspace';
+			const isBack = e.keyCode === BACK_KEYCODE || e.key === 'GoBack' || e.key === 'Escape' || e.key === 'Backspace';
+			const target = e.target as HTMLElement | null;
+			const editingText = !!target && (target.tagName === 'INPUT' || target.isContentEditable);
+			if (editingText && !isBack) return;      // the field and its keyboard own the key
+
 			e.preventDefault();
 			e.stopPropagation();
 
+			if (editingText) {
+				// Back leaves the field; the platform closes its keyboard.
+				target?.blur();
+				return;
+			}
+
 			if (pane === 'iptv') {
-				if (importMode) {
-					if (e.key === 'Backspace') {
-						setImportCode((c) => c.slice(0, -1));
-						return;
-					}
-					if (e.key === 'Enter') {
-						void fetchImportConfig(importCode).then((cfg) => {
-							if (cfg) {
-								setIptvDraft(cfg);
-								setImportMsg('ok');
-							} else {
-								setImportMsg('fail');
-							}
-							setImportMode(false);
-						});
-						return;
-					}
-					if (e.key === 'GoBack' || e.key === 'Escape' || e.keyCode === 461) {
-						setImportMode(false);
-						setImportMsg(null);
-						return;
-					}
-					if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key) && importCode.length < 12) {
-						setImportCode((c) => c + e.key);
-					}
-					return;
-				}
-				if (editField !== null) {
-					if (e.key === 'Backspace') {
-						setIptvDraft((d) => {
-							const next = {...d};
-							const field = IPTV_FIELDS[editField].key;
-							next[field] = next[field].slice(0, -1);
-							return next;
-						});
-						return;
-					}
-					if (e.key === 'Enter' || e.key === 'GoBack' || e.key === 'Escape' || e.keyCode === 461) {
-						setEditField(null);
-						return;
-					}
-					if (e.key.length === 1) {
-						setIptvDraft((d) => {
-							const next = {...d};
-							const field = IPTV_FIELDS[editField].key;
-							next[field] = next[field] + e.key;
-							return next;
-						});
-					}
-					return;
-				}
 				if (isBack) {
 					setPane('main');
 					setRow(ROWS.findIndex((r) => r.kind === 'action' && r.action === 'iptv'));
 					return;
 				}
-				if (e.key === 'ArrowUp') { setRow((r) => Math.max(0, r - 1)); return; }
-				if (e.key === 'ArrowDown') { setRow((r) => Math.min(IPTV_FIELDS.length + 1, r + 1)); return; }
+				if (e.key === 'ArrowUp') { e.preventDefault(); setRow((r) => Math.max(0, r - 1)); return; }
+				if (e.key === 'ArrowDown') { e.preventDefault(); setRow((r) => Math.min(iptvRows - 1, r + 1)); return; }
 				if (e.key === 'Enter') {
-					if (row < IPTV_FIELDS.length) setEditField(row);
-					else if (row === IPTV_FIELDS.length) {
-						setImportMode(true);
-						setImportCode('');
-						setImportMsg(null);
-					}
-					else {
+					if (e.repeat) return;
+					if (row < IPTV_FIELDS.length) {
+						inputRefs.current[row]?.focus();
+						inputRefs.current[row]?.select();
+					} else {
 						onSaveIptv(iptvDraft);
-						setPane('main');
-						setRow(ROWS.findIndex((r) => r.kind === 'action' && r.action === 'iptv'));
+						setSaved(true);
 					}
 				}
 				return;
@@ -228,10 +181,7 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 				if (def.action === 'reset') { onOrderReset(); setResetDone(true); }
 				else if (def.action === 'iptv') {
 					setIptvDraft({base: iptvConfig.base, user: iptvConfig.user, pass: iptvConfig.pass});
-					setEditField(null);
-					setImportMode(false);
-					setImportCode('');
-					setImportMsg(null);
+					setSaved(false);
 					setPane('iptv');
 					setRow(0);
 				}
@@ -246,94 +196,117 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 
 		window.addEventListener('keydown', onKey, true);
 		return () => window.removeEventListener('keydown', onKey, true);
-	}, [pane, row, rowCount, onClose, onOrderReset, manageable, onToggleHide, clock24, onClock24, fps, onFps, editField, iptvDraft, iptvConfig, onSaveIptv]);
+	}, [pane, row, rowCount, iptvRows, onClose, onOrderReset, manageable, onToggleHide, clock24, onClock24, fps, onFps, iptvDraft, iptvConfig, onSaveIptv]);
 
 	const title = pane === 'main' ? 'Ajustes do Launcher' : (pane === 'apps' ? 'Gerenciar aplicativos' : 'Configurar IPTV');
 	const hint = pane === 'apps'
-		? '↑↓ navegar · OK mostrar/ocultar · Back voltar'
+		? '↑↓ navegar · OK mostrar/ocultar · Voltar voltar'
 		: pane === 'iptv'
-			? '↑↓ navegar · OK editar/importar · Back voltar'
-			: '↑↓ navegar · ‹ › alterar · OK selecionar · Back fechar';
+			? '↑↓ navegar · OK editar campo · Voltar sai do campo'
+			: '↑↓ navegar · ‹ › alterar · OK selecionar · Voltar fechar';
+
+	// Focused rows must keep exactly this alpha: the overlay matches on it.
+	const rowStyle = (focused: boolean) => ({
+		background: focused ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
+		border: `1.5px solid ${focused ? 'rgba(255,255,255,0.3)' : 'transparent'}`
+	});
 
 	return (
 		<div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md">
-			<div className="w-[740px] rounded-[36px] border border-white/10 bg-slate-900/95 px-12 py-10 shadow-2xl">
+			<div className="w-[740px] max-h-[660px] overflow-y-auto rounded-[36px] border border-white/10 bg-slate-900/95 px-12 py-10 shadow-2xl" style={{scrollbarWidth: 'none'}}>
 				<h2 className="mb-8 text-3xl font-semibold tracking-tight text-white">{title}</h2>
 
 				{pane === 'apps' ? (
-					<AppsPane apps={manageable} hidden={hidden} row={row} />
+					<AppsPane apps={manageable} hidden={hidden} row={row} onToggle={onToggleHide} onFocusRow={setRow} />
 				) : pane === 'iptv' ? (
-					<div className="flex flex-col gap-3">
-						{IPTV_FIELDS.map((f, i) => {
-							const focused = row === i || editField === i;
-							return (
-								<div
-									key={f.key}
-									className="flex flex-col gap-2 rounded-2xl px-6 py-3 transition-colors"
-									style={{
-										background: focused ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
-										border: `1.5px solid ${focused ? 'rgba(255,255,255,0.3)' : 'transparent'}`
-									}}
-								>
-									<span className="text-sm font-medium text-white/60">{f.label}</span>
-									<input
-										type={f.type}
-										readOnly
-										autoComplete="off"
-										value={iptvDraft[f.key]}
-										className="w-full rounded-xl px-4 py-3 text-[20px] text-white outline-none"
-										style={{
-											background: focused ? 'rgba(124,168,255,0.12)' : 'rgba(255,255,255,0.05)',
-											border: `1px solid ${focused ? '#7ca8ff' : 'rgba(255,255,255,0.15)'}`
-										}}
-									/>
-								</div>
-							);
-						})}
-						<div
-							className="flex flex-col gap-2 rounded-2xl px-6 py-4 transition-colors"
-							style={{
-								background: row === IPTV_FIELDS.length ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
-								border: `1.5px solid ${row === IPTV_FIELDS.length ? 'rgba(255,255,255,0.3)' : 'transparent'}`
-							}}
-						>
-							<div className="flex items-center justify-between">
-								<span className="text-xl font-medium text-white/90">Importar via código</span>
-								<span className="text-lg font-medium" style={{color: row === IPTV_FIELDS.length ? '#38BDF8' : 'rgba(255,255,255,0.5)'}}>
-									{importMode ? (importCode || 'digite…') : (importMsg === 'ok' ? 'Importado ✓' : importMsg === 'fail' ? 'Código inválido' : 'OK para importar')}
+					<>
+						<div className="flex flex-col gap-3">
+							{IPTV_FIELDS.map((f, i) => {
+								const focused = row === i;
+								return (
+									<div
+										key={f.key}
+										onClick={() => { setRow(i); inputRefs.current[i]?.focus(); }}
+										onMouseEnter={() => setRow(i)}
+										className="flex flex-col gap-2 rounded-2xl px-6 py-3 transition-colors"
+										style={rowStyle(focused)}
+									>
+										<span className="text-sm font-medium text-white/60">{f.label}</span>
+										<input
+											ref={(el) => { inputRefs.current[i] = el; }}
+											type={f.type}
+											inputMode={f.type === 'url' ? 'url' : 'text'}
+											autoComplete="off"
+											autoCorrect="off"
+											spellCheck={false}
+											placeholder={f.hint}
+											value={iptvDraft[f.key]}
+											onChange={(e) => setIptvDraft((d) => ({...d, [f.key]: e.target.value}))}
+											onFocus={() => setRow(i)}
+											className="w-full rounded-xl px-4 py-3 text-[20px] text-white outline-none placeholder:text-white/30"
+											style={{
+												background: focused ? 'rgba(124,168,255,0.12)' : 'rgba(255,255,255,0.05)',
+												border: `1px solid ${focused ? '#7ca8ff' : 'rgba(255,255,255,0.15)'}`
+											}}
+										/>
+									</div>
+								);
+							})}
+							<div
+								role="button"
+								onClick={() => { setRow(IPTV_FIELDS.length); onSaveIptv(iptvDraft); setSaved(true); }}
+								onMouseEnter={() => setRow(IPTV_FIELDS.length)}
+								className="flex cursor-pointer flex-col gap-2 rounded-2xl px-6 py-4 transition-colors"
+								style={rowStyle(row === IPTV_FIELDS.length)}
+							>
+								<span className="text-xl font-medium text-white/90">Salvar</span>
+								<span className="text-lg font-medium" style={{color: 'rgba(255,255,255,0.5)'}}>
+									{saved ? 'Salvo ✓' : 'OK para salvar'}
 								</span>
 							</div>
-							<span className="text-sm font-medium text-white/40">Cole a lista num paste (paste.rs) no celular e digite só o código aqui</span>
 						</div>
-						<div
-							className="flex items-center justify-between rounded-2xl px-6 py-4 transition-colors"
-							style={{
-								background: row === IPTV_FIELDS.length + 1 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
-								border: `1.5px solid ${row === IPTV_FIELDS.length + 1 ? 'rgba(255,255,255,0.3)' : 'transparent'}`
-							}}
-						>
-							<span className="text-xl font-medium text-white/90">Salvar</span>
-							<span className="text-lg font-medium" style={{color: row === IPTV_FIELDS.length + 1 ? '#38BDF8' : 'rgba(255,255,255,0.5)'}}>
-								OK para salvar
-							</span>
-						</div>
-					</div>
+						{isInsecureBase(iptvDraft.base) && (
+							<p className="mt-4 text-sm font-medium text-[#FFB86B]">
+								Endereço sem TLS: usuário e senha trafegam sem criptografia.
+							</p>
+						)}
+						{iptvPlaintextFallback && (
+							<p className="mt-2 text-sm font-medium text-[#FFB86B]">
+								Keymanager3 indisponível: as credenciais ficam guardadas sem criptografia neste aparelho.
+							</p>
+						)}
+					</>
 				) : (
 					<div className="flex flex-col gap-3">
 						{ROWS.map((def, i) => {
 							const focused = i === row;
+							const activate = () => {
+								setRow(i);
+								if (def.kind === 'choice') {
+									const cur = def.values.indexOf(def.get());
+									def.set(def.values[(cur + 1) % def.values.length]);
+								} else if (def.kind === 'action') {
+									if (def.action === 'reset') { onOrderReset(); setResetDone(true); }
+									else if (def.action === 'iptv') {
+										setIptvDraft({base: iptvConfig.base, user: iptvConfig.user, pass: iptvConfig.pass});
+										setSaved(false);
+										setPane('iptv');
+										setRow(0);
+									} else { setPane('apps'); setRow(0); }
+								}
+							};
 							return (
 								<div
 									key={def.label}
-									className="flex items-center justify-between rounded-2xl px-6 py-4 transition-colors"
-									style={{
-										background: focused ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
-										border: `1.5px solid ${focused ? 'rgba(255,255,255,0.3)' : 'transparent'}`
-									}}
+									role="button"
+									onClick={activate}
+									onMouseEnter={() => setRow(i)}
+									className="flex cursor-pointer items-center justify-between rounded-2xl px-6 py-4 transition-colors"
+									style={rowStyle(focused)}
 								>
 									<span className="text-xl font-medium text-white/90">{def.label}</span>
 									{def.kind === 'choice' ? (
-										<span className="flex items-center gap-3 text-lg" style={{color: focused ? '#38BDF8' : 'rgba(255,255,255,0.5)'}}>
+										<span className="flex items-center gap-3 text-lg" style={{color: 'rgba(255,255,255,0.5)'}}>
 											{focused && <span className="opacity-70">‹</span>}
 											<span className="min-w-[104px] text-center font-medium">{def.labels[def.values.indexOf(def.get())]}</span>
 											{focused && <span className="opacity-70">›</span>}
@@ -341,7 +314,7 @@ export default function Settings ({onClose, onOrderReset, apps, hidden, onToggle
 									) : def.kind === 'info' ? (
 										<span className="text-lg font-medium text-white/40">{def.value}</span>
 									) : (
-										<span className="text-lg font-medium" style={{color: focused ? '#38BDF8' : 'rgba(255,255,255,0.5)'}}>
+										<span className="text-lg font-medium" style={{color: 'rgba(255,255,255,0.5)'}}>
 											{def.action === 'reset' && resetDone ? 'Restaurado ✓' : def.hint}
 										</span>
 									)}

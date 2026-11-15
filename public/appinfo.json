@@ -1,7 +1,7 @@
 {
   "id": "br.com.customhome.lite",
-  "version": "1.0.0",
-  "vendor": "me",
+  "version": "1.0.1",
+  "vendor": "br.com.customhome",
   "type": "web",
   "main": "index.html",
   "title": "Home Lite",
@@ -9,8 +9,10 @@
   "largeIcon": "largeIcon.png",
   "iconColor": "#050505",
   "bgColor": "#000000",
-  "uiRevision": 2,
   "resolution": "1920x1080",
   "disableBackHistoryAPI": true,
-  "frame": false
+  "appDescription": "Sua home sem anúncios para a TV LG",
+  "accessibility": {
+    "supportsAudioGuidance": true
+  }
 }

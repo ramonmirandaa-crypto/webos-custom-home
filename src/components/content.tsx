@@ -7,6 +7,10 @@ export function monogram (name: string): string {
 	return letters.join('') || name.slice(0, 2).toUpperCase();
 }
 
+// Tile geometry and focus treatment come from the tvOS overlay
+// (theme/tvos-theme.css), which matches the Tailwind class names used below
+// (`.h-[90px].w-[160px].rounded-[14px]` -> 250x150 r30). Keep those names.
+//
 // Generic tvOS-style carousel row: translates horizontally to keep the focused
 // tile centered within the 1528px content gutter. Wrapped in React.memo to prevent
 // unnecessary re-renders when other sections update.
@@ -51,12 +55,15 @@ export const ChannelTile = memo(function ChannelTile ({
 	focused,
 	epg,
 	enter,
+	onHover,
 	size = 'lg'
 }: {
 	item: LiveChannel;
 	focused: boolean;
 	epg: EpgProgram | null;
 	enter: (ch: LiveChannel) => void;
+	// Magic Remote pointer mode: hovering moves focus, clicking opens.
+	onHover?: () => void;
 	size?: 'lg' | 'md';
 }) {
 	const [logoFailed, setLogoFailed] = useState(false);
@@ -64,6 +71,7 @@ export const ChannelTile = memo(function ChannelTile ({
 		<div
 			data-focused={focused ? 'true' : 'false'}
 			className="relative shrink-0 cursor-pointer"
+			onMouseEnter={onHover}
 			style={{
 				transform: focused ? 'scale(1.08)' : 'scale(1)',
 				zIndex: focused ? 30 : 1,
@@ -160,12 +168,15 @@ export const PosterTile = memo(function PosterTile ({
 	kind,
 	focused,
 	enter,
+	onHover,
 	size = 'lg'
 }: {
 	item: MovieItem | SeriesItem;
 	kind: 'movie' | 'series';
 	focused: boolean;
 	enter: (item: MovieItem | SeriesItem) => void;
+	// Magic Remote pointer mode: hovering moves focus, clicking opens.
+	onHover?: () => void;
 	size?: 'lg' | 'md';
 }) {
 	const [imgFailed, setImgFailed] = useState(false);
@@ -174,6 +185,7 @@ export const PosterTile = memo(function PosterTile ({
 		<div
 			data-focused={focused ? 'true' : 'false'}
 			className="relative shrink-0 cursor-pointer"
+			onMouseEnter={onHover}
 			style={{
 				transform: focused ? 'scale(1.08)' : 'scale(1)',
 				zIndex: focused ? 30 : 1,

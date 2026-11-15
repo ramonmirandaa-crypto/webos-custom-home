@@ -6,21 +6,28 @@ interface AppCardProps {
 	app: AT4KAppItem;
 	focused: boolean;
 	reordering?: boolean;
+	// Magic Remote pointer mode: hovering moves focus, clicking launches.
+	onSelect?: () => void;
+	onHover?: () => void;
 }
 
-// tvOS-style tile: flat brand gel at idle (no per-tile blur — the TV GPU can't
-// hold 60fps with 18 backdrop blurs). The full liquid material (blur, bloom,
-// sheen, glow) mounts only on the focused tile. All motion is transform-only
-// so focus moves stay on the compositor.
-// Idle tiles also skip backdrop-filter AND filter entirely: dimming is baked
-// into the gradient stops instead of a per-tile filter pass.
+// App tile. Geometry and focus treatment are owned by the tvOS overlay
+// (theme/tvos-theme.css): it targets `.h-[90px].w-[160px].rounded-[14px]` and
+// resizes it to the Sketch reference (250x150, r30). The inline styles here are
+// the pre-theme baseline, kept so the app still looks right if the overlay is
+// not injected. Flat brand gel at idle — no per-tile blur, because the TV GPU
+// cannot hold 60fps with 18 backdrop blurs.
+//
+// KEEP the class names above intact: the overlay matches on them.
 
-export default memo(function AppCard ({app, focused, reordering = false}: AppCardProps) {
+export default memo(function AppCard ({app, focused, reordering = false, onSelect, onHover}: AppCardProps) {
 	const label = app.label || app.title;
 	return (
 		<div
-			className="relative shrink-0"
+			className="relative shrink-0 cursor-pointer"
 			data-focused={focused ? 'true' : 'false'}
+			onClick={onSelect}
+			onMouseEnter={onHover}
 			aria-label={label}
 			style={{
 				transform: focused ? 'scale(1.12) translateY(-12px)' : 'scale(1) translateY(0)',

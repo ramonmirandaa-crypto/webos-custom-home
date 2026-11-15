@@ -5,97 +5,57 @@ export interface AT4KAppItem {
 	cardBg: string;
 	textColor: string;
 	icon?: string;
-	// Runtime icon supplied by the TV itself (listLaunchPoints) — the official
-	// art for what's actually installed. Always wins over bundled fallbacks.
-	tvIcon?: string;
 	logoType:
-		| 'netflix'
-		| 'youtube'
-		| 'prime'
-		| 'appletv'
+		| 'livetv'
 		| 'globoplay'
-		| 'max'
-		| 'disney'
-		| 'spotify'
-		| 'plex'
+		| 'youtube'
+		| 'stremio'
+		| 'aceplayer'
+		| 'plutotv'
+		| 'lgchannels'
 		| 'hdmi'
 		| 'browser'
-		| 'homebrew'
-		| 'ytmusic'
-		| 'deezer'
+		| 'discovery'
 		| 'settings'
 		| 'generic';
 	badge?: string;
 	launchType?: 'app' | 'input' | 'internal';
 }
 
+// Only apps actually installed on the TV (verified as root via
+// applicationManager/listApps on 2026-09-15). Anything not installed is
+// NOT listed here — dead tiles are worse than a shorter grid.
 export const DEFAULT_AT4K_APPS: AT4KAppItem[] = [
-	{
-		id: 'netflix', title: 'Netflix', cardBg: '#E50914', textColor: '#FFFFFF', logoType: 'netflix'
-	},
-	{
-		id: 'youtube.leanback.v4', title: 'YouTube', cardBg: '#FF0000', textColor: '#FFFFFF', logoType: 'youtube'
-	},
-	{
-		id: 'amazon', title: 'Prime Video', cardBg: '#00A8E1', textColor: '#FFFFFF', logoType: 'prime'
-	},
-	{
-		id: 'com.apple.appletv', title: 'Apple TV', cardBg: '#1C1C22', textColor: '#FFFFFF', logoType: 'appletv'
-	},
-	{
-		id: 'com.globo.globoplay', title: 'Globoplay', cardBg: '#E23200', textColor: '#FFFFFF', logoType: 'globoplay'
-	},
-	{
-		id: 'com.wbd.stream', title: 'Max', cardBg: '#002BE7', textColor: '#FFFFFF', logoType: 'max'
-	},
-	{
-		id: 'com.disney.disneyplus-prod', title: 'Disney+', cardBg: '#0C48D1', textColor: '#FFFFFF', logoType: 'disney'
-	},
-	{
-		id: 'spotify-beehive', title: 'Spotify', cardBg: '#1DB954', textColor: '#FFFFFF', logoType: 'spotify'
-	},
-	{
-		id: 'plex', title: 'Plex', cardBg: '#E5A00D', textColor: '#FFFFFF', logoType: 'plex'
-	},
-	{
-		id: 'com.webos.app.hdmi1', title: 'HDMI 1', label: 'Console', badge: 'HDMI 1', cardBg: '#546E7A', textColor: '#FFFFFF', logoType: 'hdmi', launchType: 'input'
-	},
-	{
-		id: 'com.webos.app.hdmi2', title: 'HDMI 2', label: 'Console', badge: 'HDMI 2', cardBg: '#607D8B', textColor: '#FFFFFF', logoType: 'hdmi', launchType: 'input'
-	},
-	{
-		id: 'com.webos.app.hdmi3', title: 'HDMI 3', label: 'Entrada', badge: 'HDMI 3', cardBg: '#78909C', textColor: '#FFFFFF', logoType: 'hdmi', launchType: 'input'
-	},
-	{
-		id: 'com.webos.app.browser', title: 'Navegador', cardBg: '#1F6FEB', textColor: '#FFFFFF', logoType: 'browser'
-	},
-	{
-		id: 'org.webosbrew.hbchannel', title: 'Homebrew', cardBg: '#10B981', textColor: '#FFFFFF', logoType: 'homebrew'
-	},
-	{
-		id: 'youtube.music', title: 'YouTube Music', cardBg: '#E62117', textColor: '#FFFFFF', logoType: 'ytmusic'
-	},
-	{
-		id: 'com.deezer.webos', title: 'Deezer', cardBg: '#7B2FF2', textColor: '#FFFFFF', logoType: 'deezer'
-	},
-	{
-		id: 'com.lennylxx.iptv', title: 'IPTV', label: 'IPTV Player', cardBg: '#4B2EDE', textColor: '#FFFFFF', logoType: 'generic', icon: './icons/iptv.png'
-	},
-	{
-		id: 'internal.settings', title: 'Ajustes', cardBg: '#5A6472', textColor: '#FFFFFF', logoType: 'settings', launchType: 'internal'
-	}
+	{ id: 'com.webos.app.livetv', icon: 'icons/livetv.png', title: 'TV ao vivo', cardBg: '#C62828', textColor: '#FFFFFF', logoType: 'livetv' },
+	{ id: 'globoplaywebos', icon: 'icons/globoplay.png', title: 'Globoplay', cardBg: '#E23200', textColor: '#FFFFFF', logoType: 'globoplay' },
+	{ id: 'youtube.leanback.v4', icon: 'icons/youtube.png', title: 'YouTube', cardBg: '#FF0000', textColor: '#FFFFFF', logoType: 'youtube' },
+	{ id: 'io.strem.tv', icon: 'icons/stremio.png', title: 'Stremio', cardBg: '#6C3CE0', textColor: '#FFFFFF', logoType: 'stremio' },
+	{ id: 'com.plutotv.app', icon: 'icons/plutotv.png', title: 'Pluto TV', cardBg: '#FFD400', textColor: '#FFFFFF', logoType: 'plutotv' },
+	{ id: 'com.aceplayer.app', icon: 'icons/aceplayer.png', title: 'Ace Player', cardBg: '#1A1A1A', textColor: '#FFFFFF', logoType: 'aceplayer' },
+	{ id: 'com.webos.app.lgchannels', icon: 'icons/lgchannels.png', title: 'LG Channels', cardBg: '#E31837', textColor: '#FFFFFF', logoType: 'lgchannels' },
+	{ id: 'com.webos.app.hdmi1', icon: 'icons/hdmi1.png', title: 'HDMI 1', label: 'Console', badge: 'HDMI 1', cardBg: '#546E7A', textColor: '#FFFFFF', logoType: 'hdmi', launchType: 'input' },
+	{ id: 'com.webos.app.hdmi2', icon: 'icons/hdmi2.png', title: 'HDMI 2', label: 'Console', badge: 'HDMI 2', cardBg: '#607D8B', textColor: '#FFFFFF', logoType: 'hdmi', launchType: 'input' },
+	{ id: 'com.webos.app.hdmi3', icon: 'icons/hdmi3.png', title: 'HDMI 3', label: 'Entrada', badge: 'HDMI 3', cardBg: '#78909C', textColor: '#FFFFFF', logoType: 'hdmi', launchType: 'input' },
+	{ id: 'com.webos.app.hdmi4', icon: 'icons/hdmi4.png', title: 'HDMI 4', label: 'Entrada', badge: 'HDMI 4', cardBg: '#90A4AE', textColor: '#FFFFFF', logoType: 'hdmi', launchType: 'input' },
+	{ id: 'com.webos.app.browser', icon: 'icons/browser.png', title: 'Navegador', cardBg: '#1F6FEB', textColor: '#FFFFFF', logoType: 'browser' },
+	{ id: 'com.webos.app.discovery', icon: 'icons/discovery.png', title: 'Loja LG', label: 'Loja de Apps', cardBg: '#A50034', textColor: '#FFFFFF', logoType: 'discovery' },
+	{ id: 'com.palm.app.settings', icon: 'icons/settings.png', title: 'Configurações', label: 'Ajustes da TV', cardBg: '#5A6472', textColor: '#FFFFFF', logoType: 'settings' }
 ];
 
-// Official bundled fallback art (public/icons/*). Used only when the TV hasn't
-// supplied its own launch-point icon — e.g. in the desktop browser. Brands
-// without a bundled PNG fall back to a plain title: never an invented logo.
-// To add one: drop the official PNG in public/icons/ and extend this map.
+// Official art extracted from the TV itself (as root, 2026-09-15) into
+// public/icons/*. Brands without a bundled PNG fall back to a plain title:
+// never an invented logo.
+// To add one: pull the official PNG from the TV into public/icons/ and extend
+// this map.
 export const BUNDLED_ART: Partial<Record<AT4KAppItem['logoType'], string>> = {
-	netflix: 'icons/netflix.png',
+	livetv: 'icons/livetv.png',
+	globoplay: 'icons/globoplay.png',
 	youtube: 'icons/youtube.png',
-	prime: 'icons/prime.png',
-	appletv: 'icons/appletv.png',
-	max: 'icons/hbomax.png',
-	disney: 'icons/disney.png',
-	spotify: 'icons/spotify.png',
+	stremio: 'icons/stremio.png',
+	aceplayer: 'icons/aceplayer.png',
+	plutotv: 'icons/plutotv.png',
+	lgchannels: 'icons/lgchannels.png',
+	browser: 'icons/browser.png',
+	discovery: 'icons/discovery.png',
+	settings: 'icons/settings.png',
 };

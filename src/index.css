@@ -26,7 +26,6 @@ html, body, #root {
 	font-family: var(--font-sans);
 	-webkit-font-smoothing: antialiased;
 	overflow: hidden;
-	cursor: none;
 	user-select: none;
 }
 

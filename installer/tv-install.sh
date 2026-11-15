@@ -1,64 +1,40 @@
 #!/bin/sh
-# webOS Custom Home — on-device installer (runs ON the TV via `ssh root@<ip> "sh -s"`).
+# Install Custom Home Lite on the TV from the helper host.
 #
-# Installs the app straight from the GitHub release using the Homebrew Channel's
-# own install service (which runs elevated and registers the launch point), then
-# enables boot autostart + the HOME-button takeover and launches it. No ares-cli,
-# no Node, no scp, no build — the TV downloads the ipk itself.
+#   sh installer/tv-install.sh
 #
-# Requires a ROOTED webOS TV (Homebrew Channel + SSH). Pinned to release v0.4.2.
-# Everything here is reversible; nothing touches the read-only OS partitions.
+# Run this ON the helper host (it has the ares profile and the dev-mode key).
+# Developer Mode only — no root, no boot hook, no on-device service.
+set -eu
 
-APP_ID="tld.my.customhome"
-IPK_URL="https://github.com/zzeppieri/webos-custom-home/releases/download/v0.4.2/tld.my.customhome_0.4.2_all.ipk"
-IPK_HASH="98a2f9678f1c6e02799326d15c0936b9d36ad03f555c787666b30f0130debfa4"  # sha256 of the ipk
-SVCDIR="/media/developer/apps/usr/palm/services/${APP_ID}.service"
-INITD="/var/lib/webosbrew/init.d/50-customhome"
-HB="luna://org.webosbrew.hbchannel.service/install"
+APP_ID=br.com.customhome.lite
+DEVICE="${TV_DEVICE:-tv}"
+SRC="${1:-.}"
 
-fail () { echo "ERROR: $1" >&2; exit 1; }
+cd "$SRC"
+[ -f appinfo.json ] || [ -f public/appinfo.json ] || { echo "ERROR: run this from a repo checkout" >&2; exit 1; }
 
-echo "==> webOS Custom Home installer (v0.4.2)"
+command -v ares-install >/dev/null 2>&1 || { echo "ERROR: ares CLI missing (npm i -g @webos-tools/cli)" >&2; exit 1; }
 
-# --- sanity checks: is this actually a rooted webOS TV? ---
-command -v luna-send >/dev/null 2>&1 || fail "luna-send not found — this doesn't look like a webOS TV."
-[ -d /var/lib/webosbrew ] || fail "Homebrew Channel (webosbrew) not found — root the TV first (see the tutorial)."
+echo "==> building"
+npm run build
 
-# --- install via Homebrew Channel; hold the subscription open until it finishes ---
-echo "==> Downloading + installing from GitHub (this can take up to a minute)..."
-LOG="/tmp/customhome-install.$$.log"
-timeout 180 luna-send -i -f "$HB" \
-  "{\"ipkUrl\":\"${IPK_URL}\",\"ipkHash\":\"${IPK_HASH}\",\"subscribe\":true}" >"$LOG" 2>&1 &
-BG=$!
+echo "==> packaging"
+rm -f ./*.ipk
+ares-package dist -o . --no-minify
 
-ok=0; i=0
-while [ $i -lt 90 ]; do
-  if grep -q '"finished": *true' "$LOG" 2>/dev/null; then ok=1; break; fi
-  if grep -q '"errorText"' "$LOG" 2>/dev/null; then break; fi
-  sleep 2; i=$((i + 1))
-done
-kill "$BG" 2>/dev/null
+IPK=$(ls ./*.ipk | head -1)
+[ -n "$IPK" ] || { echo "ERROR: no .ipk produced" >&2; exit 1; }
 
-if [ "$ok" -ne 1 ]; then
-  echo "   last status from the TV:" >&2
-  grep -oE '"(statusText|errorText)": *"[^"]*"' "$LOG" 2>/dev/null | tail -4 >&2
-  rm -f "$LOG"
-  fail "install did not complete."
-fi
-rm -f "$LOG"
-echo "==> Installed."
+echo "==> manifest the TV will read"
+ares-package --info-detail "$IPK"
 
-# --- boot persistence + HOME-button takeover ---
-if [ -f "$SVCDIR/autostart.sh" ]; then
-  ln -sf "$SVCDIR/autostart.sh" "$INITD"
-  echo "==> Boot autostart enabled."
-  sh "$SVCDIR/autostart.sh" 2>/dev/null && echo "==> Launched + HOME watcher armed."
-else
-  echo "WARN: launcher service not found; the app is installed but won't take over boot/HOME." >&2
-fi
+echo "==> installing $IPK"
+ares-install --device "$DEVICE" "$IPK"
 
-echo ""
-echo "✓ Done. Your custom home is installed and set to launch on every boot."
-echo "  • Press HOME on the remote to jump to it from any app."
-echo "  • If HOME doesn't work, your remote may use a different key code — see the tutorial, section 9."
-echo "  • To customize apps/weather/icons, clone the repo and edit + redeploy."
+echo "==> launching"
+ares-launch --device "$DEVICE" "$APP_ID" || true
+
+echo
+echo "✓ installed. Open 'Home Lite' on the TV, then set IPTV credentials in"
+echo "  the gear menu — the TV's own virtual keyboard handles the fields."

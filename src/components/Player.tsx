@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
-import Hls from 'hls.js';
+import type Hls from 'hls.js';
 
 export interface PlayItem {
 	kind: 'live' | 'movie' | 'series';
@@ -9,104 +9,159 @@ export interface PlayItem {
 	meta?: string; // group (live) or kind label
 }
 
-// Fullscreen HLS player — tvOS-style OSD bottom-left, auto-hide, zap on
-// ArrowUp/ArrowDown for live, Back/Escape exits.
+const OSD_TIMEOUT = 5000;
+
+// Fullscreen player. Its visual vocabulary is the pre-theme baseline; the tvOS
+// overlay (theme/tvos-theme.css) restyles these classes (.bg-black/45,
+// .rounded-[26px], .text-[13px]/[14px] ...). Keep them intact.
+// tvOS-style OSD at the bottom, auto-hide, zap on
+// ArrowUp/ArrowDown for live, Enter toggles play/pause, Back exits.
+//
+// Playback follows the official media guidance: prefer the platform's native
+// HLS (Safari/webOS can play m3u8 itself) and only load hls.js when the panel
+// cannot. Switching clips always goes through load(), which resets readyState
+// on webOS TV 3.0+ — without it the new source is ignored.
+// https://webostv.developer.lge.com/develop/guides/backward-compatibility
 export function Player ({
 	item,
 	onClose,
-	onZap,
-	onEnter
+	onZap
 }: {
 	item: PlayItem;
 	onClose: () => void;
 	onZap: (delta: 1 | -1) => void;
-	onEnter?: () => void;
 }) {
 	const videoRef = useRef<HTMLVideoElement | null>(null);
 	const hlsRef = useRef<Hls | null>(null);
+	const osdTimer = useRef<number>(0);
 	const [osd, setOsd] = useState(true);
 	const [logoFailed, setLogoFailed] = useState(false);
-	const [state, setState] = useState<'loading' | 'playing' | 'error'>('loading');
+	const [state, setState] = useState<'loading' | 'playing' | 'paused' | 'error'>('loading');
+	const [clock, setClock] = useState(() => new Date());
 
+	const isLive = item.kind === 'live';
+
+	// ---------------------------------------------------------------- source
 	useEffect(() => {
 		const v = videoRef.current;
 		if (!v) return;
-		const isHls = /\.m3u8(\?|$)/i.test(item.url) || item.url.includes('m3u8');
-		if (isHls && Hls.isSupported()) {
-			const hls = new Hls({enableWorker: true});
-			hls.attachMedia(v);
-			hls.on(Hls.Events.ERROR, (_ev, data) => {
-				if (data.fatal) setState('error');
+		let disposed = false;
+		setState('loading');
+
+		const onLoaded = () => {
+			if (disposed) return;
+			setState('playing');
+			v.play().catch(() => { /* autoplay policies — the OSD still shows play */ });
+		};
+		v.addEventListener('loadedmetadata', onLoaded);
+		v.addEventListener('error', () => { if (!disposed) setState('error'); });
+
+		const isHls = /\.m3u8(\?|$)/i.test(item.url);
+		const nativeHls = v.canPlayType('application/vnd.apple.mpegurl') !== '';
+
+		if (isHls && !nativeHls) {
+			// hls.js is only pulled in when the panel cannot play m3u8 natively.
+			void import('hls.js').then(({default: HlsCtor}) => {
+				if (disposed) return;
+				const hls = new HlsCtor({enableWorker: true});
+				hls.attachMedia(v);
+				hls.on(HlsCtor.Events.ERROR, (_ev, data) => {
+					if (data.fatal) setState('error');
+				});
+				hls.on(HlsCtor.Events.MANIFEST_PARSED, onLoaded);
+				hls.loadSource(item.url);
+				hlsRef.current = hls;
 			});
-			hls.on(Hls.Events.MANIFEST_PARSED, () => {
-				setState('playing');
-				v.play().catch(() => {});
-			});
-			hls.on(Hls.Events.LEVEL_LOADED, () => setState('playing'));
-			hls.loadSource(item.url);
-			hlsRef.current = hls;
-		} else if (isHls && v.canPlayType('application/vnd.apple.mpegurl')) {
-			v.src = item.url;
-			v.onloadedmetadata = () => {
-				setState('playing');
-				v.play().catch(() => {});
-			};
-			v.onerror = () => setState('error');
 		} else {
 			v.src = item.url;
-			v.onloadedmetadata = () => {
-				setState('playing');
-				v.play().catch(() => {});
-			};
-			v.onerror = () => setState('error');
+			v.load();
 		}
+
 		return () => {
+			disposed = true;
 			hlsRef.current?.destroy();
 			hlsRef.current = null;
-			v.onloadedmetadata = null;
-			v.onerror = null;
+			v.removeEventListener('loadedmetadata', onLoaded);
+			v.pause();
+			v.removeAttribute('src');
+			v.load();
 		};
 	}, [item.url]);
 
-	// OSD + remote handling
+	// -------------------------------------------------------------- remote
 	useEffect(() => {
-		const wake = () => setOsd(true);
+		const wake = () => {
+			setOsd(true);
+			window.clearTimeout(osdTimer.current);
+			osdTimer.current = window.setTimeout(() => setOsd(false), OSD_TIMEOUT);
+		};
+		const togglePlay = () => {
+			const v = videoRef.current;
+			if (!v) return;
+			if (v.paused) {
+				v.play().then(() => setState('playing')).catch(() => { /* keep OSD honest */ });
+			} else {
+				v.pause();
+				setState('paused');
+			}
+		};
 		const onKey = (e: KeyboardEvent) => {
 			if (e.keyCode === 461 || e.key === 'GoBack' || e.key === 'Escape' || e.key === 'Backspace') {
 				e.preventDefault();
 				onClose();
 				return;
 			}
-			wake();
-			if (item.kind === 'live') {
-				if (e.key === 'ArrowUp') {
-					e.preventDefault();
-					onZap(1);
-				} else if (e.key === 'ArrowDown') {
-					e.preventDefault();
-					onZap(-1);
-				}
+			if (isLive && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+				e.preventDefault();
+				wake();
+				onZap(e.key === 'ArrowUp' ? 1 : -1);
+				return;
 			}
 			if (e.key === 'Enter') {
 				e.preventDefault();
-				onEnter?.();
+				if (e.repeat) return;
+				wake();
+				togglePlay();
 				return;
 			}
+			// Any other keypress brings the OSD back without stealing the key.
+			wake();
 		};
-		const t = window.setTimeout(() => setOsd(false), 5000);
+
+		wake();
 		window.addEventListener('keydown', onKey);
 		return () => {
 			window.removeEventListener('keydown', onKey);
-			window.clearTimeout(t);
+			window.clearTimeout(osdTimer.current);
 		};
-	}, [item.kind, onClose, onZap, onEnter]);
+	}, [isLive, onClose, onZap]);
 
-	const isLive = item.kind === 'live';
-	const [clock, setClock] = useState(() => new Date());
+	// Keep the clock in the OSD fresh without re-rendering every second.
 	useEffect(() => {
 		const id = window.setInterval(() => setClock(new Date()), 30_000);
 		return () => window.clearInterval(id);
 	}, []);
+
+	// Suspend playback when the app loses the foreground: the system launcher or
+	// the TV's own overlay taking over should not leave audio playing behind it.
+	useEffect(() => {
+		const suspend = () => {
+			const v = videoRef.current;
+			if (v && !v.paused) {
+				v.pause();
+				setState('paused');
+			}
+		};
+		const onVisibility = () => { if (document.hidden) suspend(); };
+		window.addEventListener('blur', suspend);
+		document.addEventListener('visibilitychange', onVisibility);
+		return () => {
+			window.removeEventListener('blur', suspend);
+			document.removeEventListener('visibilitychange', onVisibility);
+		};
+	}, []);
+
+	const controlsVisible = osd || state === 'paused';
 
 	return (
 		<div className="fixed inset-0 z-50 bg-black select-none">
@@ -132,8 +187,8 @@ export function Player ({
 			<div
 				className="absolute bottom-10 left-10 right-10 flex items-center gap-5 rounded-[26px] border border-white/12 bg-black/45 px-7 py-5 backdrop-blur-2xl"
 				style={{
-					opacity: osd ? 1 : 0,
-					transform: osd ? 'translateY(0)' : 'translateY(8px)',
+					opacity: controlsVisible ? 1 : 0,
+					transform: controlsVisible ? 'translateY(0)' : 'translateY(10px)',
 					transitionProperty: 'opacity, transform',
 					transitionDuration: '240ms',
 					transitionTimingFunction: 'cubic-bezier(0.2, 0, 0, 1)'
@@ -152,11 +207,13 @@ export function Player ({
 				)}
 				<div className="min-w-0 flex-1">
 					<p className="truncate text-[24px] font-semibold tracking-tight text-white">{item.title}</p>
-					<p className="mt-0.5 truncate text-[14px] font-medium text-white/55">{item.meta || ''}</p>
+					<p className="mt-0.5 truncate text-[14px] font-medium text-white/55">
+						{state === 'paused' ? 'Pausado · OK retoma' : (item.meta || '')}
+					</p>
 				</div>
 				{isLive ? (
 					<span className="flex shrink-0 items-center gap-2 rounded-full bg-[#FF453A]/15 px-4 py-1.5 text-[13px] font-bold uppercase tracking-[0.18em] text-[#FF6961]">
-						<span className="h-2.5 w-2.5 rounded-full bg-[#FF453A] shadow-[0_0_12px_rgba(255,69,58,0.95)]" />
+						<span className="h-2.5 w-2.5 rounded-full bg-[#FF453A]" />
 						Ao vivo
 					</span>
 				) : (
@@ -165,7 +222,7 @@ export function Player ({
 					</span>
 				)}
 				<span className="shrink-0 text-[13px] font-medium text-white/40">
-					{isLive ? '↑ ↓ trocar canal' : 'OK pausar · Voltar sair'}
+					{isLive ? '↑ ↓ trocar canal · OK pausar' : 'OK pausar · Voltar sair'}
 				</span>
 			</div>
 		</div>

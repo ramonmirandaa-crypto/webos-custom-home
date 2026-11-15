@@ -1,0 +1,177 @@
+{
+  "$comment": "tvOS design tokens extracted from the Sketch document 'Design Templates + Components + Guides' (system colors / materials / type styles / safe-area guides) and measured from the exported reference renders. Consumed by theme/tvos-theme.css and build/build-ipk.sh.",
+  "source": {
+    "document": "Design Templates + Components + Guides",
+    "documentID": "4FCDA5C2-0581-4192-BB52-7B327B8DA312",
+    "sketchVersion": "2026.3",
+    "apiVersion": "2.0.0",
+    "pages": {
+      "colors": " ",
+      "materials": " ",
+      "type": "Guide - Type Styles",
+      "grid": "Guide - Safe Areas & Grids",
+      "reference": "Templates - Home Screen"
+    },
+    "referenceFrames": {
+      "appGrid": "63A96229-1A7A-4A87-8261-5EE8EA5DD9F4",
+      "homeScreen": "178E3DE5-8B97-479F-A301-973F79B91EE7",
+      "systemColors": "1DFA9E82-813C-4CBF-B8C7-1EB6B2850C59",
+      "materials": "44D451BA-94C4-47F4-AECF-554750E15157"
+    },
+    "extracted": "2026-09-12"
+  },
+  "typography": {
+    "family": "SF Pro",
+    "scale": {
+      "title1": { "size": 76, "line": 96 },
+      "title2": { "size": 57, "line": 66 },
+      "title3": { "size": 48, "line": 56 },
+      "headline": { "size": 38, "line": 46 },
+      "callout": { "size": 31, "line": 38 },
+      "body": { "size": 29, "line": 36 },
+      "caption1": { "size": 25, "line": 32 },
+      "caption2": { "size": 23, "line": 30 }
+    },
+    "$comment": "sizes + line spacing read from the SVG export of 'Type Styles - Regular - Dark'; body line spacing inferred (36) - not present in the exported frame"
+  },
+  "labels": {
+    "$comment": "opaque label colors (Opaque Label Colors group, dark column) - white with alpha over content",
+    "dark": {
+      "primary": "#ffffffff",
+      "secondary": "#ffffff80",
+      "tertiary": "#ffffff4d",
+      "quaternary": "#ffffff33"
+    },
+    "light": {
+      "primary": "#000000ff",
+      "secondary": "#00000099",
+      "tertiary": "#00000066",
+      "quaternary": "#00000033"
+    },
+    "highContrastDark": {
+      "primary": "#ffffffff",
+      "secondary": "#ffffffd9",
+      "tertiary": "#ffffffbf",
+      "quaternary": "#ffffff8c"
+    }
+  },
+  "fills": {
+    "$comment": "Opaque Fill Colors group (identical light/dark)",
+    "primary": "#ffffff33",
+    "secondary": "#ffffff29",
+    "tertiary": "#ffffff1f",
+    "quaternary": "#ffffff14"
+  },
+  "separator": { "dark": "#ffffff30", "light": "#00000030", "dividerGuide": "#ebebf530" },
+  "tints": {
+    "$comment": "Opaque Tint Colors group - dark column used by the launcher theme",
+    "dark": {
+      "red": "#FF453A",
+      "orange": "#FF9F0A",
+      "yellow": "#FFD60A",
+      "green": "#32D74B",
+      "mint": "#63E6E2",
+      "teal": "#40C8E0",
+      "cyan": "#64D2FF",
+      "blue": "#0A84FF",
+      "indigo": "#5E5CE6",
+      "purple": "#BF5AF2",
+      "pink": "#FF375F",
+      "brown": "#AC8E68"
+    },
+    "light": {
+      "red": "#FF3B30",
+      "orange": "#FF9500",
+      "yellow": "#FFCC00",
+      "green": "#34C759",
+      "mint": "#00C7BE",
+      "teal": "#30B0C7",
+      "cyan": "#32ADE6",
+      "blue": "#007AFF",
+      "indigo": "#5856D6",
+      "purple": "#AF52DE",
+      "pink": "#FF5066",
+      "brown": "#A2845E"
+    }
+  },
+  "materials": {
+    "$comment": "Materials frame - fill + blur radius + saturation (blur 75 for every material)",
+    "blur": 75,
+    "ultraDark": { "fill": "#1e1e1ed9", "saturation": 1.5 },
+    "dark": { "fill": "#1e1e1e80", "saturation": 1.4 },
+    "mediumDark": { "fill": "#1e1e1e80", "saturation": 1.0 },
+    "semiDark": { "fill": "#1e1e1e66", "saturation": 1.5 },
+    "semiLight": { "fill": "#e1e1e1b3", "saturation": 1.6 },
+    "mediumLight": { "fill": "#fefdff80", "saturation": 1.25 },
+    "light": { "fill": "#fefdff80", "saturation": 2.0 },
+    "ultraLight": { "fill": "#fefdffb3", "saturation": 1.5 },
+    "background": "#2a2a2a"
+  },
+  "grid": {
+    "$comment": "measured from the exported 'App Grid - Default' render (1920x1080) - 6 columns span the full width",
+    "canvas": { "width": 1920, "height": 1080 },
+    "columns": 6,
+    "tile": { "width": 250, "height": 150, "radius": 30, "aspect": "5:3" },
+    "gutter": 48,
+    "margin": 90,
+    "rowGap": 48,
+    "shelf": { "radius": 36, "paddingVertical": 40, "paddingHorizontal": 20, "stroke": "#ffffff1f" },
+    "contentWidth": 1740
+  },
+  "focus": {
+    "$comment": "tvOS focus: lift + scale with a soft white halo; timer curve observed in the templates",
+    "scale": 1.1,
+    "translateY": -12,
+    "glow": "0 0 32px rgba(255,255,255,0.28)",
+    "shadow": "0 18px 48px rgba(0,0,0,0.55)",
+    "timingFunction": "cubic-bezier(0.2, 0, 0, 1)",
+    "durationMs": 200
+  },
+  "homeScreen": {
+    "$comment": "measured from 'Templates - Home Screen / Home Screen' (dock panel + wallpaper treatment) and 'Top Shelf - 2:3 - 5up' (the Overlay layer's background blur)",
+    "wallpaper": { "blur": 75, "saturation": 1.8, "overlay": "#00000033" },
+    "dock": {
+      "width": 1830,
+      "screenMargin": 45,
+      "paddingVertical": 35,
+      "paddingHorizontal": 45,
+      "radius": 50,
+      "tile": { "width": 250, "height": 150 },
+      "gutter": 48,
+      "contentMargin": 90
+    },
+    "topShelf": { "posterAspect": "2:3", "up": 5, "posterWidth": 352, "posterHeight": 493, "gutter": 20, "header": "Headline", "caption": "Caption 1" }
+  },
+  "lockup": {
+    "$comment": "measured from 'Templates - Lockup / Lockup' - the media card grammar (card, title below, subtitle below that)",
+    "card": { "width": 320, "height": 180, "radius": 12 },
+    "gutter": 40,
+    "screenMargin": 80,
+    "title": { "offsetBelowCard": 18, "size": 25, "line": 32 },
+    "subtitle": { "offsetBelowCard": 50, "size": 23, "line": 30, "color": "secondaryLabel" }
+  },
+  "controlCenter": {
+    "$comment": "measured from 'Templates - Control Center / Control Center - Active State' (the open state): panel and menu-bar geometry, tile sizes and radii; the tile radius comes from the exported render, the rest from the frame tree",
+    "frame": "0A46DBD3-9FA2-48C6-AB61-FE87862A9B9B",
+    "panel": { "x": 1390, "y": 136, "width": 480, "height": 480, "radius": 50, "padding": 24, "gutter": 16 },
+    "tiles": {
+      "radius": 25,
+      "large": { "width": 208, "height": 208 },
+      "wide": { "width": 208, "height": 96 },
+      "small": { "width": 96, "height": 96 },
+      "unfocusedFill": "rgba(0,0,0,0.62)",
+      "focusedFill": "#ffffff"
+    },
+    "menuBar": {
+      "x": 1493,
+      "y": 50,
+      "width": 377,
+      "height": 70,
+      "radius": 35,
+      "itemHeight": 58,
+      "itemInset": 6,
+      "items": ["Time 131x58", "Control 58x58", "Control 58x58", "Control 58x58", "Avatar 58x58"]
+    },
+    "overlay": "#0000004d"
+  }
+}

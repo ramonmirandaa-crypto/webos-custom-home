@@ -7,7 +7,7 @@ function TileArt ({src, title, onFail}: {src: string; title: string; onFail: () 
 		<img
 			src={src}
 			alt={title}
-			className="relative z-10 h-[64px] max-w-[128px] object-contain drop-shadow-[0_3px_10px_rgba(0,0,0,0.5)]"
+			className="relative z-10 h-[84px] max-w-[170px] object-contain drop-shadow-[0_3px_10px_rgba(0,0,0,0.5)]"
 			draggable={false}
 			onError={onFail}
 		/>
@@ -17,10 +17,11 @@ function TileArt ({src, title, onFail}: {src: string; title: string; onFail: () 
 export default function AppLogo ({app}: {app: AT4KAppItem}) {
 	const [artFailed, setArtFailed] = useState(false);
 	// Official art only, in priority order:
-	// 1. the TV's own launch-point icon (exactly what's installed),
-	// 2. the bundled official PNG (desktop browser, or TV icon missing),
-	// 3. the plain title below — never an invented logo.
-	const art = !artFailed ? (app.tvIcon || app.icon || BUNDLED_ART[app.logoType]) : undefined;
+	// 1. the app's own PNG (extracted from the TV),
+	// 2. the bundled official PNG,
+	// 3. a drawn glyph for the built-in destinations (HDMI/browser/settings),
+	// 4. the plain title — never an invented logo.
+	const art = !artFailed ? (app.icon || BUNDLED_ART[app.logoType]) : undefined;
 	if (art) {
 		return <TileArt src={art} title={app.title} onFail={() => { setArtFailed(true); }} />;
 	}
@@ -54,15 +55,6 @@ export default function AppLogo ({app}: {app: AT4KAppItem}) {
 					<span className="font-sans text-[20px] font-bold tracking-tight text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.4)]">Navegador</span>
 				</div>
 			);
-		case 'homebrew':
-			return (
-				<div className="flex items-center gap-2.5">
-					<svg className="h-8 w-8 fill-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.55)]" viewBox="0 0 24 24">
-						<path d="M19 4h-2V3a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v1H5a3 3 0 0 0-3 3v2a6 6 0 0 0 5 5.91V17a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3v-2.09A6 6 0 0 0 22 9V7a3 3 0 0 0-3-3zm1 5a4 4 0 0 1-3 3.86V6h3v3zM4 9V6h3v6.86A4 4 0 0 1 4 9zm11 8a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1h6v1zm0-3H9V4h6v10z"/>
-					</svg>
-					<span className="font-sans text-[20px] font-bold tracking-tight text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.45)]">Homebrew</span>
-				</div>
-			);
 		case 'settings':
 			return (
 				<div className="flex items-center gap-2.5">
@@ -74,7 +66,7 @@ export default function AppLogo ({app}: {app: AT4KAppItem}) {
 			);
 		default:
 			return (
-				<span className="font-sans text-[22px] font-bold text-white tracking-tight">{app.title}</span>
+				<span className="font-sans text-[24px] font-bold text-white tracking-tight">{app.title}</span>
 			);
 	}
 }

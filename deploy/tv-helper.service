@@ -1,0 +1,25 @@
+[Unit]
+Description=webOS launcher LAN launch bridge (br.com.customhome.lite, hardened)
+Documentation=file:///opt/tv-launch-helper/tv-helper.py
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/tv-launch-helper
+ExecStart=/usr/bin/python3 /opt/tv-launch-helper/tv-helper.py
+Environment=PYTHONUNBUFFERED=1
+# ares-cli resolves its device list and SSH key through the user's home.
+Environment=HOME=/root
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+EnvironmentFile=/etc/tv-launch-helper/tv-helper.env
+Restart=always
+RestartSec=3
+# Batch work on a shared box: never compete with interactive load.
+CPUQuota=25%
+MemoryHigh=192M
+MemoryMax=256M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target
